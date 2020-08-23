@@ -9,7 +9,7 @@ Panchangam
 This project computes a *Pañcāṅgam* for a given location and given year.
 It uses planetary positions from the Swiss ephemeris to (somewhat
 accurately) calculate important aspects of a day, particularly the five
-*āṅgams*, viz. *tithi* (moon phase), *nakshatram* (asterism), *yogam*,
+*āṅgams*, viz. *tithi* (moon phase), *nakshatram* (asterism), *yoga*,
 *karaṇam* and *vāram*, and also the occurrence of various Hindu
 festivals, which are usually decided by elaborate rules dependent on the
 (combinations of the) *āṅgams*.
@@ -22,7 +22,7 @@ Key Features
 #. Generate an A5 PDF of a *daily calendar* using Python / TeX (using
    ``gen_daily_cal.sh`` or ``write_daily_panchangam_tex.py``)
 #. Generate an ICS calendar file for using with calendaring applications
-   (using ``gen_ics.sh`` or ``write_panchangam_ics.py``)
+   (using ``gen_ics.sh`` or ``ics.py``)
 
 The PDFs and ICS are best generated using a Devanagari (and Tamil)
 scripts, though IAST works as well (mostly).

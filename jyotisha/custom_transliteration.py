@@ -3,7 +3,6 @@
 
 import re
 import swisseph as swe
-import sys
 from math import floor
 
 from indic_transliteration import xsanscript as sanscript
@@ -15,10 +14,9 @@ logging.basicConfig(
 )
 
 
-
 def romanise(iast_text):
-    swapTable = {'ā': 'a', 'Ā': 'A', 'ī': 'i', 'ū': 'u', 'ṅ': 'n', 'ṇ': 'n',
-                 'ḍ': 'd', 'ṭ': 't', 'ṃ': 'm', 'ñ': 'n', 'ṛ': 'ri', 'ś': 'sh',
+    swapTable = {'ā': 'a', 'Ā': 'A', 'ī': 'i', 'ū': 'u', 'ê': 'e', 'ṅ': 'n', 'ṇ': 'n',
+                 'ḍ': 'd', 'ṭ': 't', 'ṃ': 'm', 'ñ': 'n', 'ṉ': 'n', 'ṛ': 'ri', 'ś': 'sh',
                  'Ś': 'Sh', 'ṣ': 'sh', 'Ṣ': 'Sh', 'ḥ': '', '-': '-', ' ': '-'}
 
     roman_text = ''
@@ -49,21 +47,18 @@ def tr(text, scr, titled=True):
                     scr = sanscript.TAMIL
                 t = t[3:]
                 if scr == sanscript.TAMIL:
-                    transliterated_text.append('\\tamil{%s}' % 
-                        sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr).replace('C','Ch').replace('c','ch').title())
+                    tamil_text = sanscript.SCHEMES[sanscript.TAMIL].apply_roman_numerals(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr))
+                    transliterated_text.append('\\tamil{%s}' % tamil_text.replace('C', 'Ch').replace('c', 'ch').title())
                 else:
-                    transliterated_text.append(
-                        sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr).replace('C','Ch').replace('c','ch').title())
+                    transliterated_text.append(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr).replace('C', 'Ch').replace('c', 'ch').title())
 
             else:
                 if t.find('RIGHTarrow') == -1:
-                    transliterated_text.append(
-                        sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr).replace('C','Ch').replace('c','ch').title())
+                    transliterated_text.append(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr).replace('C', 'Ch').replace('c', 'ch').title())
                 else:
                     [txt, t1, arrow, t2] = t.split('\\')
-                    transliterated_text.append(
-                        '\\'.join([sanscript.transliterate(data=txt, _from=sanscript.HK, _to=scr).replace('C','Ch').replace('c','ch').title(),
-                                   t1, arrow, t2]))
+                    transliterated_text.append('\\'.join([sanscript.transliterate(data=txt, _from=sanscript.HK, _to=scr).replace('C', 'Ch').replace('c', 'ch').title(),
+                                                          t1, arrow, t2]))
     else:
         for t in text_bits:
             t = t.rstrip('~0123456789 ')
@@ -72,18 +67,22 @@ def tr(text, scr, titled=True):
                 if scr == sanscript.DEVANAGARI:
                     scr = sanscript.TAMIL
                 t = t[3:]
-                transliterated_text.append(
-                    sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr).replace('C','Ch').replace('c','ch').title())
+                tamil_text = sanscript.SCHEMES[sanscript.TAMIL].apply_roman_numerals(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr))
+                transliterated_text.append(tamil_text.replace('C', 'Ch').replace('c', 'ch').strip("{}").title())
+                # logging.debug(transliterated_text)
             else:
                 if t.find('RIGHTarrow') == -1:
                     transliterated_text.append(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr))
                 else:
                     [txt, t1, arrow, t2] = t.split('\\')
-                    transliterated_text.append(
-                        '\\'.join([sanscript.transliterate(txt, _from=sanscript.HK, _to=scr),
-                                   t1, arrow, t2]))
+                    transliterated_text.append('\\'.join([sanscript.transliterate(txt, _from=sanscript.HK, _to=scr), t1, arrow, t2]))
 
-    return '|'.join(transliterated_text)
+    output_text = '|'.join(transliterated_text)
+    if scr == 'tamil':
+        output_text = sanscript.SCHEMES[sanscript.TAMIL].apply_roman_numerals(output_text)
+    if scr == 'iast':
+        output_text = output_text.replace('ṉ', 'n')
+    return output_text
 
 
 def sexastr2deci(sexa_str):
@@ -165,7 +164,7 @@ def revjul(jd, formatstr='%4d-%02d-%02d %02d:%02d:%02d', tz_off=0):
         return (formatstr % (year, month, day, hour, minute, second))
 
 
-def print_lat_lon(latstr, lonstr):
+def print_lat_lon(lat, lon):
     """Returns a formatted string for a latitude and longitude
 
     Returns a formatted string for latitude and longitude, given sexagesimal
@@ -183,35 +182,24 @@ def print_lat_lon(latstr, lonstr):
       "13°05'24''N, 80°16'12''E"
       >>> print_lat_lon('37:23:59','-122:08:34') #Palo Alto
       "37°23'59''N, 122°08'34''W"
-      >>> print_lat_lon('1','-1')
+      >>> print_lat_lon(1, -1)
       "1°0'0''N, 1°0'0''W"
     """
 
-    if(latstr[0] == '-'):
-        latstr = latstr[1:]
+    if lat < 0:
+        lat = -lat
         lat_suffix = 'S'
     else:
         lat_suffix = 'N'
 
-    lat_data = latstr.split(':')
-    while len(lat_data) < 3:
-        lat_data.append(0)
-    formatted_string = '%s°%s\'%s\'\'%s' % (lat_data[0], lat_data[1], lat_data[2], lat_suffix)
-
-    if lonstr[0] == '-':
-        lonstr = lonstr[1:]
+    if lon < 0:
+        lon = -lon
         lon_suffix = 'W'
     else:
         lon_suffix = 'E'
 
-    lon_data = lonstr.split(':')
-    while len(lon_data) < 3:
-        lon_data.append(0)
-    formatted_string = '%s, %s°%s\'%s\'\'%s' % (formatted_string, lon_data[0],
-                                                lon_data[1], lon_data[2], lon_suffix)
-
-    return formatted_string
+    return '%.6f°%s, %.6f°%s' % (lat, lat_suffix, lon, lon_suffix)
 
 
 def longitudeToRightAscension(longitude):
-    return (360-longitude)/360*24
+    return (360 - longitude) / 360 * 24

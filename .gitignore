@@ -1,13 +1,22 @@
 # general things to ignore
 /build/
+.idea/
 dist/
+venv/
 *.egg-info/
 *.egg
 *.py[cod]
 __pycache__/
+.pytest_cache/
 *.so
 *~
+config_local.json
 
 # due to using tox and pytest
 .tox
 .cache
+*.iml
+*.local
+jyotisha/panchangam/data/festival_rules_test.json
+tests/update_test_json.py
+*.swp

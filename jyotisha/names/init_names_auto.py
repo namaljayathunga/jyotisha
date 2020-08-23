@@ -1,45 +1,31 @@
 #!/usr/bin/python3
 #  -*- coding: utf-8 -*-
 
-import ast
-
 import os
-from indic_transliteration import xsanscript as sanscript
 import logging
+from indic_transliteration import xsanscript as sanscript
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(levelname)s: %(asctime)s {%(filename)s:%(lineno)d}: %(message)s "
-)
-
+logging.basicConfig(level=logging.DEBUG,
+                    format="%(levelname)s: %(asctime)s {%(filename)s:%(lineno)d}: %(message)s ")
 
 CODE_ROOT = os.path.dirname(os.path.dirname(__file__))
 
-def init_names_auto(fname=os.path.join(CODE_ROOT, 'names/data/translation_table_HK.tsv')):
+scripts = [sanscript.DEVANAGARI, sanscript.IAST, sanscript.TAMIL, sanscript.TELUGU]
 
-    with open(fname) as f:
-        lines = f.readlines()
 
-    scripts_list = [sanscript.DEVANAGARI, sanscript.IAST]
+def init_names_auto(fname=os.path.join(CODE_ROOT, 'names/data/translation_table_HK.json')):
+  """Read various nakShatra, samvatsara, mAsa and such names from a file return a dict with all of that.
 
-    NAMES = {}
-    for line in lines:
-        var, value = line.strip().split('\t')
+  :returns a dict like { "YEAR_NAMES": {"hk": } ...}
+  """
+  with open(fname) as f:
+    import json
+    names_dict = json.load(f)
+    for dictionary in names_dict:
+      if dictionary != 'VARA_NAMES':
+        # Vara Names follow zero indexing, rest don't
+        names_dict[dictionary]['hk'].insert(0, 'aspaShTam')
 
-        if var[-5:] == 'NAMES':
-            # This will be a dictionary itself, like MASA_NAMES
-            NAMES[var[:-6]] = {}
-            NAMES[var[:-6]]['hk'] = ast.literal_eval(value)
-
-            for scr in scripts_list:
-                NAMES[var[:-6]][scr] = {}
-                for key in NAMES[var[:-6]]['hk']:
-                    NAMES[var[:-6]][scr][key] = sanscript.transliterate(NAMES[var[:-6]]['hk'][key],
-                                                       sanscript.HK, scr).title()
-        else:
-            NAMES[var] = {}
-            NAMES[var]['hk'] = value.strip('\'')
-            for scr in scripts_list:
-                NAMES[var][scr] = sanscript.transliterate(NAMES[var]['hk'], sanscript.HK, scr).title()
-
-    return (NAMES)
+      for scr in scripts:
+        names_dict[dictionary][scr] = [sanscript.transliterate(name, 'hk', scr).title() for name in names_dict[dictionary]['hk']]
+    return names_dict
