@@ -1,12 +1,9 @@
 #!/usr/bin/python3
 #  -*- coding: utf-8 -*-
 
-import re
-import swisseph as swe
-from math import floor
+import logging
 
 from indic_transliteration import xsanscript as sanscript
-import logging
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -118,52 +115,6 @@ def sexastr2deci(sexa_str):
     return decival * sgn
 
 
-def revjul(jd, formatstr='%4d-%02d-%02d %02d:%02d:%02d', tz_off=0):
-    """Returns a more human readable revjul compared to swe
-
-    Converts a given jd (float) to a tuple [y,m,d,h,mm,ss]
-
-    Args:
-      A float corresponding to a Julian day
-
-    Returns:
-      A tuple detailing the year, month, day, hour, minute and second
-
-    Examples:
-      >>> revjul(2444961.7125, None)
-      (1981, 12, 23, 5, 6, 0)
-      >>> revjul(2444961.7125)
-      '1981-12-23 05:06:00'
-    """
-
-    if jd is None:
-        return None
-
-    year, month, day, h_float = swe.revjul(jd + tz_off / 24.0)
-
-    hour = floor(h_float)
-    h_float = (h_float - hour) * 60
-
-    minute = floor(h_float)
-    h_float = (h_float - minute) * 60
-
-    second = int(round(h_float))
-
-    if second == 60:
-        minute += 1
-        second = 0
-        if minute == 60:
-            hour += 1
-            minute = 0
-            if hour == 24:
-                year, month, day, _h = swe.revjul(jd + (tz_off + 1) / 24.0)
-
-    if formatstr is None:
-        return (year, month, day, hour, minute, second)
-    else:
-        return (formatstr % (year, month, day, hour, minute, second))
-
-
 def print_lat_lon(lat, lon):
     """Returns a formatted string for a latitude and longitude
 
@@ -199,7 +150,3 @@ def print_lat_lon(lat, lon):
         lon_suffix = 'E'
 
     return '%.6f°%s, %.6f°%s' % (lat, lat_suffix, lon, lon_suffix)
-
-
-def longitudeToRightAscension(longitude):
-    return (360 - longitude) / 360 * 24

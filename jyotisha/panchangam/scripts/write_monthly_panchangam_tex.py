@@ -3,7 +3,6 @@
 import logging
 import os
 import os.path
-import swisseph as swe
 import sys
 from datetime import datetime
 
@@ -14,7 +13,7 @@ import jyotisha
 import jyotisha.custom_transliteration
 import jyotisha.panchangam.spatio_temporal.annual
 import jyotisha.panchangam.temporal
-from jyotisha.panchangam import scripts
+import jyotisha.panchangam.temporal.hour
 from jyotisha.panchangam.spatio_temporal import City
 
 logging.basicConfig(
@@ -27,7 +26,7 @@ logging.basicConfig(
 CODE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 
-def writeMonthlyTeX(panchangam, template_file):
+def writeMonthlyTeX(panchangam, template_file, temporal=None):
     """Write out the panchangam TeX using a specified template
     """
     day_colours = {0: 'blue', 1: 'blue', 2: 'blue',
@@ -73,7 +72,7 @@ def writeMonthlyTeX(panchangam, template_file):
 
     mlast = 1
     for d in range(1, jyotisha.panchangam.temporal.MAX_SZ - 1):
-        [y, m, dt, t] = swe.revjul(panchangam.jd_start_utc + d - 1)
+        [y, m, dt, t] = temporal.jd_to_utc_gregorian(panchangam.jd_start_utc + d - 1)
 
         # checking @ 6am local - can we do any better?
         local_time = tz(panchangam.city.timezone).localize(datetime(y, m, dt, 6, 0, 0))
@@ -107,7 +106,7 @@ def writeMonthlyTeX(panchangam, template_file):
     month_text = ''
     W6D1 = W6D2 = ''
     for d in range(1, jyotisha.panchangam.temporal.MAX_SZ - 1):
-        [y, m, dt, t] = swe.revjul(panchangam.jd_start_utc + d - 1)
+        [y, m, dt, t] = temporal.jd_to_utc_gregorian(panchangam.jd_start_utc + d - 1)
 
         # checking @ 6am local - can we do any better?
         local_time = tz(panchangam.city.timezone).localize(datetime(y, m, dt, 6, 0, 0))
@@ -163,7 +162,7 @@ def writeMonthlyTeX(panchangam, template_file):
             else:
                 tithi_data_str = '%s\\mbox{%s\\To{}\\textsf{%s%s}}' % \
                                  (tithi_data_str, tithi,
-                                  jyotisha.panchangam.temporal.Time(24 * (tithi_end_jd - jd)).toString(format=panchangam.fmt),
+                                  jyotisha.panchangam.temporal.hour.Hour(24 * (tithi_end_jd - jd)).toString(format=panchangam.fmt),
                                   '\\hspace{2ex}')
 
         nakshatram_data_str = ''
@@ -178,8 +177,8 @@ def writeMonthlyTeX(panchangam, template_file):
             else:
                 nakshatram_data_str = '%s\\mbox{%s\\To{}\\textsf{%s%s}}' % \
                                       (nakshatram_data_str, nakshatram,
-                                       jyotisha.panchangam.temporal.Time(24 * (nakshatram_end_jd -
-                                                                               jd)).toString(format=panchangam.fmt),
+                                       jyotisha.panchangam.temporal.hour.Hour(24 * (nakshatram_end_jd -
+                                                                                    jd)).toString(format=panchangam.fmt),
                                        '\\hspace{2ex}')
 
         yoga_data_str = ''
@@ -193,7 +192,7 @@ def writeMonthlyTeX(panchangam, template_file):
             else:
                 yoga_data_str = '%s\\mbox{%s\\To{}\\textsf{%s%s}}' % \
                                  (yoga_data_str, yoga,
-                                  jyotisha.panchangam.temporal.Time(24 * (yoga_end_jd - jd)).toString(format=panchangam.fmt),
+                                  jyotisha.panchangam.temporal.hour.Hour(24 * (yoga_end_jd - jd)).toString(format=panchangam.fmt),
                                   '\\hspace{2ex}')
 
         karanam_data_str = ''
@@ -210,27 +209,27 @@ def writeMonthlyTeX(panchangam, template_file):
             else:
                 karanam_data_str = '%s\\mbox{%s\\To{}\\textsf{%s%s}}' % \
                                    (karanam_data_str, karanam,
-                                    jyotisha.panchangam.temporal.Time(24 * (karanam_end_jd -
-                                                                            jd)).toString(format=panchangam.fmt), '\\hspace{2ex}')
+                                    jyotisha.panchangam.temporal.hour.Hour(24 * (karanam_end_jd -
+                                                                                 jd)).toString(format=panchangam.fmt), '\\hspace{2ex}')
 
-        sunrise = jyotisha.panchangam.temporal.Time(24 * (panchangam.jd_sunrise[d] - jd)).toString(format=panchangam.fmt)
-        sunset = jyotisha.panchangam.temporal.Time(24 * (panchangam.jd_sunset[d] - jd)).toString(format=panchangam.fmt)
-        sangava = jyotisha.panchangam.temporal.Time(24 * (panchangam.kaalas[d]['saGgava'][0] - jd)).toString(format=panchangam.fmt)
+        sunrise = jyotisha.panchangam.temporal.hour.Hour(24 * (panchangam.jd_sunrise[d] - jd)).toString(format=panchangam.fmt)
+        sunset = jyotisha.panchangam.temporal.hour.Hour(24 * (panchangam.jd_sunset[d] - jd)).toString(format=panchangam.fmt)
+        sangava = jyotisha.panchangam.temporal.hour.Hour(24 * (panchangam.kaalas[d]['saGgava'][0] - jd)).toString(format=panchangam.fmt)
         rahu = '%s--%s' % (
-            jyotisha.panchangam.temporal.Time(24 * (panchangam.kaalas[d]['rahu'][0] - jd)).toString(format=panchangam.fmt),
-            jyotisha.panchangam.temporal.Time(24 * (panchangam.kaalas[d]['rahu'][1] - jd)).toString(format=panchangam.fmt))
+            jyotisha.panchangam.temporal.hour.Hour(24 * (panchangam.kaalas[d]['rahu'][0] - jd)).toString(format=panchangam.fmt),
+            jyotisha.panchangam.temporal.hour.Hour(24 * (panchangam.kaalas[d]['rahu'][1] - jd)).toString(format=panchangam.fmt))
         yama = '%s--%s' % (
-            jyotisha.panchangam.temporal.Time(24 * (panchangam.kaalas[d]['yama'][0] - jd)).toString(format=panchangam.fmt),
-            jyotisha.panchangam.temporal.Time(24 * (panchangam.kaalas[d]['yama'][1] - jd)).toString(format=panchangam.fmt))
+            jyotisha.panchangam.temporal.hour.Hour(24 * (panchangam.kaalas[d]['yama'][0] - jd)).toString(format=panchangam.fmt),
+            jyotisha.panchangam.temporal.hour.Hour(24 * (panchangam.kaalas[d]['yama'][1] - jd)).toString(format=panchangam.fmt))
 
         if panchangam.solar_month_end_time[d] is None:
             month_end_str = ''
         else:
             _m = panchangam.solar_month[d - 1]
             if panchangam.solar_month_end_time[d] >= panchangam.jd_sunrise[d + 1]:
-                month_end_str = '\\mbox{%s{\\tiny\\RIGHTarrow}\\textsf{%s}}' % (jyotisha.panchangam.temporal.NAMES['RASHI_NAMES'][panchangam.script][_m], jyotisha.panchangam.temporal.Time(24 * (panchangam.solar_month_end_time[d] - panchangam.jd_midnight[d + 1])).toString(format=panchangam.fmt))
+                month_end_str = '\\mbox{%s{\\tiny\\RIGHTarrow}\\textsf{%s}}' % (jyotisha.panchangam.temporal.NAMES['RASHI_NAMES'][panchangam.script][_m], jyotisha.panchangam.temporal.hour.Hour(24 * (panchangam.solar_month_end_time[d] - panchangam.jd_midnight[d + 1])).toString(format=panchangam.fmt))
             else:
-                month_end_str = '\\mbox{%s{\\tiny\\RIGHTarrow}\\textsf{%s}}' % (jyotisha.panchangam.temporal.NAMES['RASHI_NAMES'][panchangam.script][_m], jyotisha.panchangam.temporal.Time(24 * (panchangam.solar_month_end_time[d] - panchangam.jd_midnight[d])).toString(format=panchangam.fmt))
+                month_end_str = '\\mbox{%s{\\tiny\\RIGHTarrow}\\textsf{%s}}' % (jyotisha.panchangam.temporal.NAMES['RASHI_NAMES'][panchangam.script][_m], jyotisha.panchangam.temporal.hour.Hour(24 * (panchangam.solar_month_end_time[d] - panchangam.jd_midnight[d])).toString(format=panchangam.fmt))
 
         month_data = '\\sunmonth{%s}{%d}{%s}' % (jyotisha.panchangam.temporal.NAMES['RASHI_NAMES'][panchangam.script][panchangam.solar_month[d]], panchangam.solar_month_day[d], month_end_str)
 

@@ -2,19 +2,21 @@
 #  -*- coding: utf-8 -*-
 
 import logging
-import math
 import os
 import swisseph as swe
 import sys
 from datetime import datetime
-from math import floor
+from math import floor, modf
 
+from jyotisha.panchangam.temporal import Time
 from sanskrit_data.schema import common
 from sanskrit_data.schema.common import JsonObject
 # from scipy.optimize import brentq
 
 from jyotisha.custom_transliteration import sexastr2deci
 from jyotisha.panchangam import temporal
+from jyotisha.panchangam.temporal.hour import decypher_fractional_hours
+import pytz
 
 logging.basicConfig(level=logging.DEBUG,
                     format="%(levelname)s: %(asctime)s {%(filename)s:%(lineno)d}: %(message)s ")
@@ -44,13 +46,6 @@ CODE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 CALC_RISE = 897  # 512 + 256 + 128 + 1
 CALC_SET = 898   # 512 + 256 + 128 + 2
-
-
-def decypher_fractional_hours(time_in_hours):
-  hours = math.floor(time_in_hours)
-  minutes = math.floor((time_in_hours - hours) * 60)
-  seconds = math.floor((time_in_hours - hours - minutes / 60.0) * 3600)
-  return (hours, minutes, seconds)
 
 
 class City(JsonObject):
@@ -88,32 +83,37 @@ class City(JsonObject):
     city = City(name=address, latitude=location.latitude, longitude=location.longitude, timezone=timezone_str)
     return city
 
+
+class Timezone:
+  def __init__(self, timezone_id):
+    self.timezone_id = timezone_id
+    
   def get_timezone_offset_hours_from_date(self, year, month, day, hour=6, minute=0, seconds=0):
     """Get timezone offset in hours east of UTC (negative west of UTC)
 
     Timezone offset is dependent both on place and time (yes- time, not just date) - due to Daylight savings time.
     compute offset from UTC in hours
     """
-    import pytz
-    local_time = pytz.timezone(self.timezone).localize(datetime(year, month, day, hour, minute, seconds))
+    local_time = pytz.timezone(self.timezone_id).localize(datetime(year, month, day, hour, minute, seconds))
     return (datetime.utcoffset(local_time).days * 86400 +
             datetime.utcoffset(local_time).seconds) / 3600.0
 
   def julian_day_to_local_time(self, julian_day, round_seconds=False):
-    [y, m, dt, time_in_hours] = swe.revjul(julian_day)
-    (hours, minutes, seconds) = decypher_fractional_hours(time_in_hours=time_in_hours)
-    local_time = swe.utc_time_zone(y, m, dt, hours, minutes, seconds, -self.get_timezone_offset_hours_from_date(y, m, dt, hours, minutes, seconds))
+    tm = Time(julian_day, format='jd')
+    tm.format = "datetime"
+    local_datetime = pytz.timezone(self.timezone_id).fromutc(tm.value)
+    local_time = (local_datetime.year, local_datetime.month, local_datetime.day, local_datetime.hour, local_datetime.minute, local_datetime.second + local_datetime.microsecond / 1000000.0)
     if round_seconds:
       (y, m, dt, hours, minutes, seconds) = local_time
-      local_time = (y, m, dt, hours, minutes, int(round(seconds)))
-      local_time = temporal.sanitize_time(*local_time)
+      local_time = temporal.sanitize_time(y, m, dt, hours, minutes, int(round(seconds)))
     return local_time
 
   def local_time_to_julian_day(self, year, month, day, hours, minutes, seconds):
-    offset_hours = self.get_timezone_offset_hours_from_date(year=year, month=month, day=day, hour=hours, minute=minutes, seconds=seconds)
-    (year_utc, month_utc, day_utc, hours_utc, minutes_utc, seconds_utc) = swe.utc_time_zone(year, month, day, hours, minutes, seconds, offset_hours)
-    julian_dates = swe.utc_to_jd(year_utc, month_utc, day_utc, hours_utc, minutes_utc, seconds_utc, 1)
-    return julian_dates[1]
+    microseconds, _ = modf(seconds * 1000000)
+    local_datetime = pytz.timezone(self.timezone_id).localize(datetime(year, month, day, hours, minutes, int(seconds), int(microseconds)))
+    tm = Time(local_datetime, format="datetime")
+    tm.format = "jd"
+    return tm.value
 
 
 class TbSayanaMuhuurta(JsonObject):
@@ -132,7 +132,7 @@ class TbSayanaMuhuurta(JsonObject):
     self.is_nirviirya = self.muhuurta_id in (2,3, 5,6, 8,9, 11,12)
 
   def to_localized_string(self):
-    return "muhUrta %d (nirvIrya: %s) starts from %s to %s" % (self.muhuurta_id, str(self.is_nirviirya),  self.city.julian_day_to_local_time(julian_day=self.jd_start, round_seconds=True), self.city.julian_day_to_local_time(julian_day=self.jd_end, round_seconds=True))
+    return "muhUrta %d (nirvIrya: %s) starts from %s to %s" % (self.muhuurta_id, str(self.is_nirviirya),  Timezone(self.city.timezone).julian_day_to_local_time(julian_day=self.jd_start, round_seconds=True), Timezone(self.city.timezone).julian_day_to_local_time(julian_day=self.jd_end, round_seconds=True))
 
 
 # Essential for depickling to work.
