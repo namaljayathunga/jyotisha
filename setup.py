@@ -6,6 +6,8 @@ https://github.com/pypa/sampleproject
 """
 
 # Always prefer setuptools over distutils
+import os
+
 from setuptools import setup, find_packages
 # To use a consistent encoding
 from codecs import open
@@ -22,19 +24,27 @@ try:
 except (IOError, ImportError):
   long_description = ''
 
+
+with open('requirements.txt', 'r') as f:
+  install_reqs = [
+    s for s in [
+      line.split('#', 1)[0].strip(' \t\n') for line in f
+    ] if s != ''
+  ]
+
 setup(
   name='jyotisha',
 
   # Versions should comply with PEP440.  For a discussion on single-sourcing
   # the version across setup.py and the project code, see
   # https://packaging.python.org/en/latest/single_source_version.html
-  version='0.1.0',
+  version='0.1.1',
 
   description='Tools for computations involved in the jyotiSha vedAnga',
   long_description=long_description,
 
   # The project's main homepage.
-  url='https://github.com/sanskrit-coders/jyotisha',
+  url='https://github.com/jyotisham/jyotisha',
 
   # Author details
   author='Sanskrit programmers',
@@ -65,7 +75,7 @@ setup(
   ],
 
   # What does your project relate to?
-  keywords='indic vedic sanskrit astronomy astrology jyotisa jyotish jyotis, panchanga, panchangam tithi',
+  keywords='indic vedic sanskrit astronomy astrology jyotisa jyotish jyotis, panchanga, panchaanga tithi',
 
   # You can just specify the packages manually here if your project is
   # simple. Or you can use find_packages().
@@ -75,35 +85,18 @@ setup(
   # your project is installed. For an analysis of "install_requires" vs pip's
   # requirements files see:
   # https://packaging.python.org/en/latest/requirements.html
-  install_requires=[
-    'pyswisseph',
-    'astropy',
-    'scipy', 'pandas',
-    'sanskrit_data',
-    'indic_transliteration',
-    'icalendar',
-    'pytz',
-    'geocoder', 'geopy', 
-    'numpy', 
-    'flask', 'flask_restplus', 'flask_cors',
-    'jsonpickle'
-  ],
+  install_requires=install_reqs,
 
   # List additional groups of dependencies here (e.g. development
   # dependencies). You can install these using the following syntax,
   # for example:
   # $ pip install -e .[dev,test]
-  # extras_require={
-  #     'dev': ['check-manifest'],
-  #     'test': ['coverage'],
-  # },
-
-  # If there are data files included in your packages that need to be
-  # installed, specify them here.  If using Python 2.6 or less, then these
-  # have to be included in MANIFEST.in as well.
-  package_data={
-      'jyotisha': ['names/data/*', "panchangam/data/*", "panchangam/data/templates/*"],
+  extras_require={
+      'test': ['pytest'],
   },
+
+
+  include_package_data = True,
 
   # Although 'package_data' is the preferred approach, in some case you may
   # need to place data files outside of your packages. See:

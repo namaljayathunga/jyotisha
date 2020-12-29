@@ -2,151 +2,135 @@
 #  -*- coding: utf-8 -*-
 
 import logging
+import re
 
-from indic_transliteration import xsanscript as sanscript
+from indic_transliteration import xsanscript as sanscript, language_code_to_script, xsanscript
 
 logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(levelname)s: %(asctime)s {%(filename)s:%(lineno)d}: %(message)s "
+  level=logging.DEBUG,
+  format="%(levelname)s: %(asctime)s {%(filename)s:%(lineno)d}: %(message)s "
 )
 
 
 def romanise(iast_text):
-    swapTable = {'ā': 'a', 'Ā': 'A', 'ī': 'i', 'ū': 'u', 'ê': 'e', 'ṅ': 'n', 'ṇ': 'n',
-                 'ḍ': 'd', 'ṭ': 't', 'ṃ': 'm', 'ñ': 'n', 'ṉ': 'n', 'ṛ': 'ri', 'ś': 'sh',
-                 'Ś': 'Sh', 'ṣ': 'sh', 'Ṣ': 'Sh', 'ḥ': '', '-': '-', ' ': '-'}
+  swapTable = {'ā': 'a', 'Ā': 'A', 'ī': 'i', 'ū': 'u', 'ê': 'e', 'ṅ': 'n', 'ṇ': 'n',
+               'ḍ': 'd', 'ṭ': 't', 'ṃ': 'm', 'ñ': 'n', 'ṉ': 'n', 'ṛ': 'ri', 'ś': 'sh',
+               'Ś': 'Sh', 'ṣ': 'sh', 'Ṣ': 'Sh', 'ḥ': '', '-': '-', ' ': '-'}
 
-    roman_text = ''
-    for char in iast_text:
-        if char in swapTable:
-            roman_text += swapTable[char]
-        else:
-            roman_text += char
-    return roman_text.lower()
-
-
-def tr(text, scr, titled=True):
-    # titled = True seems to be primarily for NOT TitleCasing IAST Shlokas...
-    if scr == 'hk':
-        scr = sanscript.HK
-    if text == '':
-        return ''
-    text = text.replace('~', '##~##')  # Simple fix to prevent transliteration of ~
-    text_bits = text.split('|')
-    transliterated_text = []
-
-    if titled:
-        for t in text_bits:
-            t = t.rstrip('#~0123456789 ')
-            if t[:3] == 'ta:':
-                # Force Tamil!
-                if scr == sanscript.DEVANAGARI:
-                    scr = sanscript.TAMIL
-                t = t[3:]
-                if scr == sanscript.TAMIL:
-                    tamil_text = sanscript.SCHEMES[sanscript.TAMIL].apply_roman_numerals(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr))
-                    transliterated_text.append('\\tamil{%s}' % tamil_text.replace('C', 'Ch').replace('c', 'ch').title())
-                else:
-                    transliterated_text.append(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr).replace('C', 'Ch').replace('c', 'ch').title())
-
-            else:
-                if t.find('RIGHTarrow') == -1:
-                    transliterated_text.append(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr).replace('C', 'Ch').replace('c', 'ch').title())
-                else:
-                    [txt, t1, arrow, t2] = t.split('\\')
-                    transliterated_text.append('\\'.join([sanscript.transliterate(data=txt, _from=sanscript.HK, _to=scr).replace('C', 'Ch').replace('c', 'ch').title(),
-                                                          t1, arrow, t2]))
+  roman_text = ''
+  for char in iast_text:
+    if char in swapTable:
+      roman_text += swapTable[char]
     else:
-        for t in text_bits:
-            t = t.rstrip('~0123456789 ')
-            if t[:3] == 'ta:':
-                # Force Tamil!
-                if scr == sanscript.DEVANAGARI:
-                    scr = sanscript.TAMIL
-                t = t[3:]
-                tamil_text = sanscript.SCHEMES[sanscript.TAMIL].apply_roman_numerals(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr))
-                transliterated_text.append(tamil_text.replace('C', 'Ch').replace('c', 'ch').strip("{}").title())
-                # logging.debug(transliterated_text)
-            else:
-                if t.find('RIGHTarrow') == -1:
-                    transliterated_text.append(sanscript.transliterate(data=t, _from=sanscript.HK, _to=scr))
-                else:
-                    [txt, t1, arrow, t2] = t.split('\\')
-                    transliterated_text.append('\\'.join([sanscript.transliterate(txt, _from=sanscript.HK, _to=scr), t1, arrow, t2]))
+      roman_text += char
+  return roman_text.lower()
 
-    output_text = '|'.join(transliterated_text)
-    if scr == 'tamil':
-        output_text = sanscript.SCHEMES[sanscript.TAMIL].apply_roman_numerals(output_text)
-    if scr == 'iast':
-        output_text = output_text.replace('ṉ', 'n')
-    return output_text
+
+def tr(text, script, titled=True, source_script=sanscript.HK):
+  """
+  
+  NOTE: Please don't put your custom tex/ md/ ics whatever code here and pollute core library functions. Wrap this in your own functions if you must. Functions should be atomic."""
+  if script == 'hk':
+    script = sanscript.HK
+  if text == '':
+    return ''
+  # TODO: Fix this ugliness.
+  t = text.replace('~', '##~##')  # Simple fix to prevent transliteration of ~
+  transliterated_text = sanscript.transliterate(data=t, _from=source_script, _to=script).replace('C', 'Ch').replace('c', 'ch')
+  if titled:
+    transliterated_text = transliterated_text.title()
+
+  if script == sanscript.TAMIL:
+    transliterated_text = sanscript.SCHEMES[sanscript.TAMIL].apply_roman_numerals(transliterated_text)
+    # transliterated_text = clean_tamil_Na(transliterated_text)
+  if script == 'iast':
+    transliterated_text = transliterated_text.replace('ṉ', 'n')
+  return transliterated_text
 
 
 def sexastr2deci(sexa_str):
-    """Converts as sexagesimal string to decimal
+  """Converts as sexagesimal string to decimal
 
-    Converts a given sexagesimal string to its decimal value
+  Converts a given sexagesimal string to its decimal value
 
-    Args:
-      A string encoding of a sexagesimal value, with the various
-      components separated by colons
+  Args:
+    A string encoding of a sexagesimal value, with the various
+    components separated by colons
 
-    Returns:
-      A decimal value corresponding to the sexagesimal string
+  Returns:
+    A decimal value corresponding to the sexagesimal string
 
-    Examples:
-      >>> sexastr2deci('15:30:00')
-      15.5
-      >>> sexastr2deci('-15:30:45')
-      -15.5125
-    """
+  Examples:
+    >>> sexastr2deci('15:30:00')
+    15.5
+    >>> sexastr2deci('-15:30:45')
+    -15.5125
+  """
 
-    if sexa_str[0] == '-':
-        sgn = -1.0
-        dms = sexa_str[1:].split(':')  # dms = degree minute second
-    else:
-        sgn = 1.0
-        dms = sexa_str.split(':')
+  if sexa_str[0] == '-':
+    sgn = -1.0
+    dms = sexa_str[1:].split(':')  # dms = degree minute second
+  else:
+    sgn = 1.0
+    dms = sexa_str.split(':')
 
-    decival = 0
-    for i in range(0, len(dms)):
-        decival = decival + float(dms[i]) / (60.0 ** i)
+  decival = 0
+  for i in range(0, len(dms)):
+    decival = decival + float(dms[i]) / (60.0 ** i)
 
-    return decival * sgn
+  return decival * sgn
 
 
 def print_lat_lon(lat, lon):
-    """Returns a formatted string for a latitude and longitude
+  """Returns a formatted string for a latitude and longitude
 
-    Returns a formatted string for latitude and longitude, given sexagesimal
-    'strings' using colons for separation
+  Returns a formatted string for latitude and longitude, given sexagesimal
+  'strings' using colons for separation
 
-    Args:
-      str latstr
-      str lonstr
+  Args:
+    str latstr
+    str lonstr
 
-    Returns:
-      string corresponding to the formatted latitude and longitude
+  Returns:
+    string corresponding to the formatted latitude and longitude
 
-    Examples:
-      >>> print_lat_lon('13:05:24','80:16:12') #Chennai
-      "13°05'24''N, 80°16'12''E"
-      >>> print_lat_lon('37:23:59','-122:08:34') #Palo Alto
-      "37°23'59''N, 122°08'34''W"
-      >>> print_lat_lon(1, -1)
-      "1°0'0''N, 1°0'0''W"
-    """
+  Examples:
+    >>> print_lat_lon('13:05:24','80:16:12') #Chennai
+    "13°05'24''N, 80°16'12''E"
+    >>> print_lat_lon('37:23:59','-122:08:34') #Palo Alto
+    "37°23'59''N, 122°08'34''W"
+    >>> print_lat_lon(1, -1)
+    "1°0'0''N, 1°0'0''W"
+  """
 
-    if lat < 0:
-        lat = -lat
-        lat_suffix = 'S'
-    else:
-        lat_suffix = 'N'
+  if lat < 0:
+    lat = -lat
+    lat_suffix = 'S'
+  else:
+    lat_suffix = 'N'
 
-    if lon < 0:
-        lon = -lon
-        lon_suffix = 'W'
-    else:
-        lon_suffix = 'E'
+  if lon < 0:
+    lon = -lon
+    lon_suffix = 'W'
+  else:
+    lon_suffix = 'E'
 
-    return '%.6f°%s, %.6f°%s' % (lat, lat_suffix, lon, lon_suffix)
+  return '%.3f°%s, %.3f°%s' % (lat, lat_suffix, lon, lon_suffix)
+
+
+def clean_tamil_Na(text):
+  output_text = re.sub('([^ ])ந', '\\1ன', text)
+  output_text = re.sub('([-—*])ன', '\\1ந', output_text)
+  output_text = re.sub('ன்த', 'ந்த', output_text)
+  return output_text
+
+
+def transliterate_from_language(text, language, script):
+  if language == "ta":
+    # Tamil names are stored in HK (because the latter differentiates between vargIya consonants!)
+    transliterated_text = tr(text, script)
+  else:
+    source_script = language_code_to_script[language]
+    transliterated_text = xsanscript.transliterate(text, source_script, script)
+  return transliterated_text
+

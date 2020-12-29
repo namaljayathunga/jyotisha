@@ -1,0 +1,25 @@
+pyswisseph
+astropy
+scipy
+pandas
+sanskrit_data
+doc_curation
+indic_transliteration
+icalendar
+convertdate
+pytz
+geocoder
+geopy
+numpy
+# Flask
+flask_restplus
+flask_cors
+jsonpickle
+methodtools
+Werkzeug
+jyotisha
+timebudget
+Flask
+pypandoc
+setuptools
+python-telegram-bot

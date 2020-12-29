@@ -16,7 +16,10 @@ config_local.json
 .tox
 .cache
 *.iml
-*.local
-jyotisha/panchangam/data/festival_rules_test.json
-tests/update_test_json.py
+*.local*
+jyotisha/panchaanga/temporal/data/festival_rules_test.json
+jyotisha_tests/update_test_json.py
 *.swp
+/jyotisha/panchaanga/temporal/festival/data/migrated
+/docs/_site/
+/docs/.jekyll-cache/
