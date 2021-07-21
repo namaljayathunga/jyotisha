@@ -12,6 +12,7 @@ from jyotisha.panchaanga.temporal.interval import Interval
 from jyotisha.panchaanga.temporal.zodiac import NakshatraDivision
 from pytz import timezone as tz
 from sanskrit_data.schema import common
+from indic_transliteration import sanscript
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -21,17 +22,27 @@ logging.basicConfig(
 
 class SolarFestivalAssigner(FestivalAssigner):
   def assign_all(self):
-    # self.assign_gajachhaya_yoga(debug_festivals=debug)
-    self.assign_sankranti_punyakaala()
+    self.assign_gajachhaya_yoga()
+    self.assign_sidereal_sankranti_punyakaala()
+    self.assign_tropical_sankranti_punyakaala()
+    self.assign_tropical_sankranti()
     self.assign_mahodaya_ardhodaya()
     self.assign_month_day_kaaradaiyan()
+    self.assign_month_day_muDavan_muzhukku()
     self.assign_month_day_kuchela()
     self.assign_month_day_mesha_sankraanti()
     self.assign_vishesha_vyatipata()
     self.assign_agni_nakshatra()
 
 
-  def assign_sankranti_punyakaala(self):
+  def assign_pitr_dina(self):
+    self.assign_gajachhaya_yoga()
+    self.assign_sidereal_sankranti_punyakaala()
+    self.assign_mahodaya_ardhodaya()
+    self.assign_vishesha_vyatipata()
+
+
+  def assign_sidereal_sankranti_punyakaala(self):
     if 'mESa-viSu-puNyakAlaH' not in self.rules_collection.name_to_rule:
       return 
 
@@ -53,7 +64,7 @@ class SolarFestivalAssigner(FestivalAssigner):
         1: "mESa-saGkramaNa",
         2: "vRSabha-ravi-saGkramaNa-viSNupadI",
         3: "mithuna-ravi-saGkramaNa-SaDazIti",
-        4: "kaTaka-saGkramaNa",
+        4: "karkaTa-saGkramaNa",
         5: "siMha-ravi-saGkramaNa-viSNupadI",
         6: "kanyA-ravi-saGkramaNa-SaDazIti",
         7: "tulA-saGkramaNa",
@@ -63,20 +74,38 @@ class SolarFestivalAssigner(FestivalAssigner):
         11: "kumbha-ravi-saGkramaNa-viSNupadI",
         12: "mIna-ravi-saGkramaNa-SaDazIti",
     }
-    RTU_MASA_NAMES = {
-        1: "madhu-mAsaH",
-        2: "mAdhava-mAsaH/vasantaRtuH",
-        3: "zukra-mAsaH/uttarAyaNam",
-        4: "zuci-mAsaH/grISmaRtuH",
-        5: "nabhO-mAsaH",
-        6: "nabhasya-mAsaH/varSaRtuH",
-        7: "iSa-mAsaH",
-        8: "Urja-mAsaH/zaradRtuH",
-        9: "sahO-mAsaH/dakSiNAyanam",
-        10: "sahasya-mAsaH/hEmantaRtuH",
-        11: "tapO-mAsaH",
-        12: "tapasya-mAsaH/ziziraRtuH",
-    }
+    for d in range(self.panchaanga.duration_prior_padding, self.panchaanga.duration + self.panchaanga.duration_prior_padding):
+      if self.daily_panchaangas[d].solar_sidereal_date_sunset.month_transition is not None:
+        punya_kaala_str = SANKRANTI_PUNYAKALA_NAMES[self.daily_panchaangas[d + 1].solar_sidereal_date_sunset.month] + '-puNyakAlaH'
+        jd_transition = self.daily_panchaangas[d].solar_sidereal_date_sunset.month_transition
+        # TODO: convert carefully to relative nadikas!
+        punya_kaala_start_jd = jd_transition - PUNYA_KAALA[self.daily_panchaangas[d + 1].solar_sidereal_date_sunset.month][0] * 1/60
+        punya_kaala_end_jd = jd_transition + PUNYA_KAALA[self.daily_panchaangas[d + 1].solar_sidereal_date_sunset.month][1] * 1/60
+        if punya_kaala_start_jd < self.daily_panchaangas[d].julian_day_start:
+          fday = d - 1
+        else:
+          fday = d
+        self.panchaanga.add_festival_instance(festival_instance=FestivalInstance(name=punya_kaala_str, interval=Interval(jd_start=punya_kaala_start_jd, jd_end=punya_kaala_end_jd)), date=self.daily_panchaangas[fday].date)
+
+
+  def assign_tropical_sankranti_punyakaala(self):
+    if 'mESa-viSu-puNyakAlaH' not in self.rules_collection.name_to_rule:
+      return 
+
+    # Reference
+    # ---------
+    #
+    # अतीतानागते पुण्ये द्वे उदग्दक्षिणायने। त्रिंशत्कर्कटके नाड्यो मकरे विंशतिः स्मृताः॥
+    # वर्तमाने तुलामेषे नाड्यस्तूभयतो दश। षडशीत्यामतीतायां षष्टिरुक्तास्तु नाडिकाः॥
+    # पुण्यायां विष्णुपद्यां च प्राक् पश्चादपि षोडशः॥
+    # —वैद्यनाथ-दीक्षितीये स्मृतिमुक्ताफले आह्निक-काण्डः
+    #
+    # The times before and/or after any given sankranti (tropical/sidereal) are sacred for snanam & danam
+    # with specific times specified. For Mesha and Tula, 10 nAdikas before and after are special,
+    # while for Shadashiti, an entire 60 nAdikas following the sankramaNam are special, and so on.
+
+    PUNYA_KAALA = {1: (10, 10), 2: (16, 16), 3: (0, 60), 4: (30, 0), 5: (16, 16), 6: (0, 60),
+                   7: (10, 10), 8: (16, 16), 9: (0, 60), 10: (0, 20), 11: (16, 16), 12: (0, 60)}
     TROPICAL_SANKRANTI_PUNYAKALA_NAMES = {
         1: "mESa-viSu",
         2: "viSNupadI",
@@ -93,18 +122,6 @@ class SolarFestivalAssigner(FestivalAssigner):
     }
 
     for d in range(self.panchaanga.duration_prior_padding, self.panchaanga.duration + self.panchaanga.duration_prior_padding):
-      if self.daily_panchaangas[d].solar_sidereal_date_sunset.month_transition is not None:
-        punya_kaala_str = SANKRANTI_PUNYAKALA_NAMES[self.daily_panchaangas[d + 1].solar_sidereal_date_sunset.month] + '-puNyakAlaH'
-        jd_transition = self.daily_panchaangas[d].solar_sidereal_date_sunset.month_transition
-        # TODO: convert carefully to relative nadikas!
-        punya_kaala_start_jd = jd_transition - PUNYA_KAALA[self.daily_panchaangas[d + 1].solar_sidereal_date_sunset.month][0] * 1/60
-        punya_kaala_end_jd = jd_transition + PUNYA_KAALA[self.daily_panchaangas[d + 1].solar_sidereal_date_sunset.month][1] * 1/60
-        if punya_kaala_start_jd < self.daily_panchaangas[d].jd_sunrise:
-          fday = d - 1
-        else:
-          fday = d
-        self.panchaanga.add_festival_instance(festival_instance=FestivalInstance(name=punya_kaala_str, interval=Interval(jd_start=punya_kaala_start_jd, jd_end=punya_kaala_end_jd)), date=self.daily_panchaangas[fday].date)
-
       if self.daily_panchaangas[d].tropical_date_sunset.month_transition is not None:
         # Add punyakala
         punya_kaala_str = TROPICAL_SANKRANTI_PUNYAKALA_NAMES[self.daily_panchaangas[d + 1].tropical_date_sunset.month] + '-puNyakAlaH'
@@ -112,11 +129,34 @@ class SolarFestivalAssigner(FestivalAssigner):
         # TODO: convert carefully to relative nadikas!
         punya_kaala_start_jd = jd_transition - PUNYA_KAALA[self.daily_panchaangas[d + 1].tropical_date_sunset.month][0] * 1/60
         punya_kaala_end_jd = jd_transition + PUNYA_KAALA[self.daily_panchaangas[d + 1].tropical_date_sunset.month][1] * 1/60
-        if punya_kaala_start_jd < self.daily_panchaangas[d].jd_sunrise:
+        if punya_kaala_start_jd < self.daily_panchaangas[d].julian_day_start:
           fday = d - 1
         else:
           fday = d
         self.panchaanga.add_festival_instance(festival_instance=FestivalInstance(name=punya_kaala_str, interval=Interval(jd_start=punya_kaala_start_jd, jd_end=punya_kaala_end_jd)), date=self.daily_panchaangas[fday].date)
+
+
+  def assign_tropical_sankranti(self):
+    if 'mESa-viSu-puNyakAlaH' not in self.rules_collection.name_to_rule:
+      return 
+    RTU_MASA_NAMES = {
+        1: "madhu-mAsaH",
+        2: "mAdhava-mAsaH/vasantaRtuH",
+        3: "zukra-mAsaH/uttarAyaNam",
+        4: "zuci-mAsaH/grISmaRtuH",
+        5: "nabhO-mAsaH",
+        6: "nabhasya-mAsaH/varSaRtuH",
+        7: "iSa-mAsaH",
+        8: "Urja-mAsaH/zaradRtuH",
+        9: "sahO-mAsaH/dakSiNAyanam",
+        10: "sahasya-mAsaH/hEmantaRtuH",
+        11: "tapO-mAsaH",
+        12: "tapasya-mAsaH/ziziraRtuH",
+    }
+
+    for d in range(self.panchaanga.duration_prior_padding, self.panchaanga.duration + self.panchaanga.duration_prior_padding):
+      if self.daily_panchaangas[d].tropical_date_sunset.month_transition is not None:
+        jd_transition = self.daily_panchaangas[d].tropical_date_sunset.month_transition
 
         # Add tropical sankranti
         masa_name = RTU_MASA_NAMES[(self.daily_panchaangas[d + 1].tropical_date_sunset.month - 2) % 12 + 1]
@@ -130,6 +170,23 @@ class SolarFestivalAssigner(FestivalAssigner):
   def assign_agni_nakshatra(self):
     if 'agninakSatra-ArambhaH' not in self.rules_collection.name_to_rule:
       return 
+
+    # AGNI nakshatra
+    # anga_finder = zodiac.AngaSpanFinder.get_cached(ayanaamsha_id=self.ayanaamsha_id, anga_type=zodiac.AngaType.SOLAR_NAKSH_PADA)
+
+    # agni_jd_start, dummy = anga_finder.find(jd1=self.panchaanga.jd_start, jd2=self.panchaanga.jd_end, target_anga_id=7).to_tuple()
+    # dummy, agni_jd_end = anga_finder.find(jd1=agni_jd_start, jd2=agni_jd_start + 30, target_anga_id=13).to_tuple()
+
+    # fday = int(floor(agni_jd_start) - floor(self.daily_panchaangas[0].julian_day_start))
+    # if agni_jd_start < self.daily_panchaangas[fday].jd_sunrise:
+    #   fday -= 1
+    # self.panchaanga.add_festival(fest_id='agninakSatra-ArambhaH', date=self.daily_panchaangas[fday].date)
+
+    # fday = int(floor(agni_jd_end) - floor(self.daily_panchaangas[0].julian_day_start))
+    # if agni_jd_end < self.daily_panchaangas[fday].jd_sunrise:
+    #   fday -= 1
+    # self.panchaanga.add_festival(fest_id='agninakSatra-samApanam', date=self.daily_panchaangas[fday].date)
+
     agni_jd_start = agni_jd_end = None
     for d in range(self.panchaanga.duration_prior_padding, self.panchaanga.duration + self.panchaanga.duration_prior_padding):
       # AGNI nakshatra
@@ -153,7 +210,7 @@ class SolarFestivalAssigner(FestivalAssigner):
             self.panchaanga.add_festival(fest_id='agninakSatra-samApanam', date=self.daily_panchaangas[d].date + 1)
 
   def assign_month_day_kaaradaiyan(self):
-    if 'kAraDaiyAn2 nOn2bu' not in self.rules_collection.name_to_rule:
+    if 'kAraDaiyAn2_nOn2bu' not in self.rules_collection.name_to_rule:
       return
     for d, daily_panchaanga in enumerate(self.daily_panchaangas):
       ####################
@@ -181,6 +238,18 @@ class SolarFestivalAssigner(FestivalAssigner):
         self.panchaanga.add_festival(
           fest_id='kucEla-dinam', date=daily_panchaanga.date)
 
+  def assign_month_day_muDavan_muzhukku(self):
+    if 'muDavan2_muzhukku' not in self.rules_collection.name_to_rule:
+      return
+    for d, daily_panchaanga in enumerate(self.daily_panchaangas):
+      # KUCHELA DINAM
+      if daily_panchaanga.solar_sidereal_date_sunset.month == 8 and daily_panchaanga.solar_sidereal_date_sunset.day == 1:
+        if daily_panchaanga.solar_sidereal_date_sunset.month_transition is None or daily_panchaanga.solar_sidereal_date_sunset.month_transition < daily_panchaanga.jd_sunrise:
+          self.panchaanga.add_festival(fest_id='muDavan2_muzhukku', date=daily_panchaanga.date)
+        else:
+          self.panchaanga.add_festival(fest_id='muDavan2_muzhukku', date=self.daily_panchaangas[d + 1].date)
+
+
   def assign_month_day_mesha_sankraanti(self):
     if 'mESa-saGkrAntiH' not in self.rules_collection.name_to_rule:
       return 
@@ -189,12 +258,16 @@ class SolarFestivalAssigner(FestivalAssigner):
       if daily_panchaanga.solar_sidereal_date_sunset.month == 1 and self.daily_panchaangas[d - 1].solar_sidereal_date_sunset.month == 12:
         # distance from prabhava
         samvatsara_id = (daily_panchaanga.date.year - 1568) % 60 + 1
-        new_yr = 'mESa-saGkrAntiH' + '~(' + names.NAMES['SAMVATSARA_NAMES']['sa']['hk'][
+        new_yr = 'mESa-saGkrAntiH' + '~(' + names.NAMES['SAMVATSARA_NAMES']['sa'][sanscript.roman.HK_DRAVIDIAN][
           (samvatsara_id % 60) + 1] + \
                  '-' + 'saMvatsaraH' + ')'
         # self.panchaanga.festival_id_to_days[new_yr] = [d]
         self.panchaanga.add_festival(fest_id=new_yr, date=self.daily_panchaangas[d].date)
         self.panchaanga.add_festival(fest_id='paJcAGga-paThanam', date=self.daily_panchaangas[d].date)
+        if daily_panchaanga.solar_sidereal_date_sunset.month_transition is None or daily_panchaanga.solar_sidereal_date_sunset.month_transition < daily_panchaanga.jd_sunrise:
+          self.panchaanga.add_festival(fest_id='viSukkan2i', date=daily_panchaanga.date)
+        else:
+          self.panchaanga.add_festival(fest_id='viSukkan2i', date=self.daily_panchaangas[d + 1].date)
 
   def assign_vishesha_vyatipata(self):
     vs_list = copy(self.panchaanga.festival_id_to_days.get('vyatIpAta-zrAddham', []))
@@ -209,71 +282,35 @@ class SolarFestivalAssigner(FestivalAssigner):
         self.panchaanga.add_festival(fest_id=festival_name, date=date)
 
   def assign_gajachhaya_yoga(self):
-    for d, daily_panchaanga in enumerate(self.daily_panchaangas):
-      [y, m, dt] = [daily_panchaanga.date.year, daily_panchaanga.date.month, daily_panchaanga.date.day]
 
-      # checking @ 6am local - can we do any better?
-      local_time = tz(self.panchaanga.city.timezone).localize(datetime(y, m, dt, 6, 0, 0))
-      # compute offset from UTC in hours
-      tz_off = (datetime.utcoffset(local_time).days * 86400 +
-                datetime.utcoffset(local_time).seconds) / 3600.0
-      # GAJACHHAYA YOGA
-      if self.daily_panchaangas[d].solar_sidereal_date_sunset.month == 6 and self.daily_panchaangas[d].solar_sidereal_date_sunset.day == 1:
-        moon_magha_jd_start = moon_magha_jd_start = t28_start = None
-        moon_magha_jd_end = moon_magha_jd_end = t28_end = None
-        moon_hasta_jd_start = moon_hasta_jd_start = t30_start = None
-        moon_hasta_jd_end = moon_hasta_jd_end = t30_end = None
-
-        anga_finder = zodiac.AngaSpanFinder.get_cached(ayanaamsha_id=self.computation_system.ayanaamsha_id, anga_type=zodiac.AngaType.SIDEREAL_MONTH)
-        sun_hasta_jd_start, sun_hasta_jd_end = anga_finder.find(
-          jd1=self.daily_panchaangas[d].jd_sunrise, jd2=self.daily_panchaangas[d].jd_sunrise + 30, target_anga_id=13).to_tuple()
-
-        moon_magha_jd_start, moon_magha_jd_end = anga_finder.find(
-          sun_hasta_jd_start - 2, sun_hasta_jd_end + 2, 10).to_tuple()
-        if all([moon_magha_jd_start, moon_magha_jd_end]):
-          anga_finder = zodiac.AngaSpanFinder.get_cached(ayanaamsha_id=self.computation_system.ayanaamsha_id, anga_type=zodiac.AngaType.TITHI)
-          t28_start, t28_end = anga_finder.find(
-            moon_magha_jd_start - 3, moon_magha_jd_end + 3, 28).to_tuple()
-
-        anga_finder = zodiac.AngaSpanFinder.get_cached(ayanaamsha_id=self.computation_system.ayanaamsha_id, anga_type=zodiac.AngaType.NAKSHATRA)
-        moon_hasta_jd_start, moon_hasta_jd_end = anga_finder.find(
-          sun_hasta_jd_start - 1, sun_hasta_jd_end + 1, 13).to_tuple()
-        if all([moon_hasta_jd_start, moon_hasta_jd_end]):
-          anga_finder = zodiac.AngaSpanFinder.get_cached(ayanaamsha_id=self.computation_system.ayanaamsha_id, anga_type=zodiac.AngaType.TITHI)
-          t30_start, t30_end = anga_finder.find(
-            sun_hasta_jd_start - 1, sun_hasta_jd_end + 1, 30).to_tuple()
-
-        gc_28 = gc_30 = False
-
-        if all([sun_hasta_jd_start, moon_magha_jd_start, t28_start]):
-          # We have a GC yoga
-          gc_28_start = max(sun_hasta_jd_start, moon_magha_jd_start, t28_start)
-          gc_28_end = min(sun_hasta_jd_end, moon_magha_jd_end, t28_end)
-
-          if gc_28_start < gc_28_end:
-            gc_28 = True
-
-        if all([sun_hasta_jd_start, moon_hasta_jd_start, t30_start]):
-          # We have a GC yoga
-          gc_30_start = max(sun_hasta_jd_start, moon_hasta_jd_start, t30_start)
-          gc_30_end = min(sun_hasta_jd_end, moon_hasta_jd_end, t30_end)
-
-          if gc_30_start < gc_30_end:
-            gc_30 = True
-
-      if self.daily_panchaangas[d].solar_sidereal_date_sunset.month == 6 and (gc_28 or gc_30):
-        if gc_28:
-          gc_28_d = 1 + floor(gc_28_start - self.panchaanga.jd_start)
-          # sys.stderr.write('gajacchhaya %d\n' % gc_28_d)
-          # gajacchaayaa_fest = FestivalInstance(name='gajacchAyA-yOgaH', interval=Interval(jd_start=gc_28_start, jd_end=gc_28_end), days=[self.daily_panchaangas[gc_28_d].date])
-          # self.panchaanga.festival_id_to_days[gajacchaayaa_fest.name] = gajacchaayaa_fest
-          gc_28 = False
-        if gc_30:
-          # sys.stderr.write('30: (%f, %f)\n' % (gc_30_start, gc_30_end))
-          gc_30_d = 1 + floor(gc_30_start - self.panchaanga.jd_start)
-          # gajacchaayaa_fest = FestivalInstance(name='gajacchAyA-yOgaH', interval=Interval(jd_start=gc_30_start, jd_end=gc_30_end), days=[self.daily_panchaangas[gc_30_d].date])
-          # self.panchaanga.festival_id_to_days[gajacchaayaa_fest.name] = gajacchaayaa_fest
-          gc_30 = False
+    intersect_lists = [((zodiac.AngaType.SOLAR_NAKSH, 13), (zodiac.AngaType.NAKSHATRA, 10), (zodiac.AngaType.TITHI, 28)),
+                       ((zodiac.AngaType.SOLAR_NAKSH, 13), (zodiac.AngaType.NAKSHATRA, 13), (zodiac.AngaType.TITHI, 30))]
+    for intersect_list in intersect_lists:
+      jd_start = self.panchaanga.jd_start
+      jd_end = self.panchaanga.jd_end
+      anga_list = []
+      gc_yoga = True
+      for anga_type, target_anga_id in intersect_list:
+        finder = zodiac.AngaSpanFinder.get_cached(ayanaamsha_id=self.computation_system.ayanaamsha_id, anga_type=anga_type)
+        anga = finder.find(jd1 = jd_start, jd2=jd_end, target_anga_id=target_anga_id)
+        anga_list.append(anga)
+        if anga is None:
+            logging.debug('No Gajacchhaya Yoga involving %s %d + %s %d this year!' % (intersect_list[1][0], intersect_list[1][1], intersect_list[2][0], intersect_list[2][1]))
+            gc_yoga = False
+            break
+        if anga.jd_start is not None:
+            jd_start = anga.jd_start - 5 
+        if anga.jd_end is not None:
+            jd_end = anga.jd_end + 5
+      if gc_yoga:
+        jd_start, jd_end = max([x.jd_start for x in anga_list]), min([x.jd_end for x in anga_list])
+        if jd_start > jd_end:
+            logging.debug('No Gajacchhaya Yoga involving %s %d + %s %d this year!' % (intersect_list[1][0], intersect_list[1][1], intersect_list[2][0], intersect_list[2][1]))
+        else:
+          fday = int(floor(jd_start) - floor(self.daily_panchaangas[0].julian_day_start))
+          if (jd_start < self.daily_panchaangas[fday].jd_sunrise):
+            fday -= 1
+          self.panchaanga.add_festival_instance(festival_instance=FestivalInstance(name='gajacchAyA-yOgaH', interval=Interval(jd_start=jd_start, jd_end=jd_end)), date=self.daily_panchaangas[fday].date)
 
   def assign_mahodaya_ardhodaya(self):
     for d, daily_panchaanga in enumerate(self.daily_panchaangas):
@@ -282,8 +319,8 @@ class SolarFestivalAssigner(FestivalAssigner):
       # Can also refer youtube video https://youtu.be/0DBIwb7iaLE?list=PL_H2LUtMCKPjh63PRk5FA3zdoEhtBjhzj&t=6747
       # 4th pada of vyatipatam, 1st pada of Amavasya, 2nd pada of Shravana, Suryodaya, Bhanuvasara = Ardhodayam
       # 4th pada of vyatipatam, 1st pada of Amavasya, 2nd pada of Shravana, Suryodaya, Somavasara = Mahodayam
-      sunrise_zodiac = NakshatraDivision(daily_panchaanga.jd_sunrise, ayanaamsha_id=self.ayanaamsha_id)
-      sunset_zodiac = NakshatraDivision(daily_panchaanga.jd_sunset, ayanaamsha_id=self.ayanaamsha_id)
+      sunrise_zodiac = NakshatraDivision(daily_panchaanga.jd_sunrise, ayanaamsha_id=self.computation_system.ayanaamsha_id)
+      sunset_zodiac = NakshatraDivision(daily_panchaanga.jd_sunset, ayanaamsha_id=self.computation_system.ayanaamsha_id)
       if daily_panchaanga.lunar_month_sunrise.index in [10, 11] and daily_panchaanga.sunrise_day_angas.tithi_at_sunrise.index == 30 or tithi.get_tithi(daily_panchaanga.jd_sunrise).index == 30:
         if sunrise_zodiac.get_anga(zodiac.AngaType.NAKSHATRA).index == 17 or \
             sunset_zodiac.get_anga(zodiac.AngaType.NAKSHATRA).index == 17 and \

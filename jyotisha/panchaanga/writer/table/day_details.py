@@ -1,4 +1,4 @@
-from indic_transliteration import xsanscript
+from indic_transliteration import sanscript
 from jyotisha.panchaanga.spatio_temporal import City
 from jyotisha.panchaanga.temporal import names, AngaType, era
 from jyotisha.panchaanga.temporal.festival import rules
@@ -7,7 +7,7 @@ from jyotisha.panchaanga.temporal.festival.rules import RulesRepo
 ujjain = City.get_city_from_db(name="Ujjain")
 
 
-def to_table_dict(panchaanga, script=xsanscript.DEVANAGARI):
+def to_table_dict(panchaanga, script=sanscript.DEVANAGARI):
   final_dict = {"data": []}
   rules_collection = rules.RulesCollection.get_cached(
     repos_tuple=tuple(panchaanga.computation_system.festival_options.repos), julian_handling=panchaanga.computation_system.festival_options.julian_handling)

@@ -4,9 +4,13 @@ from copy import deepcopy
 
 from icalendar import Event
 
+from jyotisha import custom_transliteration
 from jyotisha.panchaanga.temporal.festival import FestivalInstance, rules, get_description
 from jyotisha.panchaanga.temporal.interval import Interval
 from jyotisha.panchaanga.writer.ics.util import get_4_hr_display_alarm
+from datetime import datetime, date, timedelta
+
+from jyotisha.util import default_if_none
 
 
 def write_to_file(ics_calendar, fname):
@@ -49,12 +53,13 @@ def get_full_festival_instance(festival_instance, daily_panchaangas, day_index):
     # TODO: Reimplement the below in another way if needed.
     new_fest_id = fest_id
     REPLACEMENTS = {'samApanam': '',
-                    'rAtri-': 'rAtriH',
                     'rAtra-': 'rAtraH',
                     'nakSatra-': 'nakSatram',
                     'pakSa-': 'pakSaH',
                     'puSkara-': 'puSkaram',
                     'dIpa-': 'dIpaH',
+                    'pArAyaNa-': 'pArAyaNam',
+                    'mAsa-': 'mAsaH',
                     'snAna-': 'snAnam',
                     'tsava-': 'tsavaH',
                     'vrata-': 'vratam'}
@@ -69,21 +74,28 @@ def festival_instance_to_event(festival_instance, languages, scripts, panchaanga
     repos_tuple=tuple(panchaanga.computation_system.festival_options.repos), julian_handling=panchaanga.computation_system.festival_options.julian_handling)
   fest_details_dict = rules_collection.name_to_rule
   fest_name = festival_instance.get_best_transliterated_name(languages=languages, scripts=scripts, fest_details_dict=rules_collection.name_to_rule)["text"].replace("~", " ")
+  if festival_instance.ordinal is not None:
+    fest_name += ' #%s' % custom_transliteration.tr(str(festival_instance.ordinal), scripts[0])
   event = Event()
   event.add('summary', fest_name)
   desc = get_description(festival_instance=festival_instance, script=scripts[0], fest_details_dict=fest_details_dict, header_md="##")
   event.add('description', desc.strip().replace('\n', '<br/>'))
 
-  if festival_instance.interval is not None and festival_instance.interval.jd_end is not None and festival_instance.interval.jd_start is not None :
+  if all_day or not festival_instance._show_interval():
+    t1 = panchaanga.city.get_timezone_obj().julian_day_to_local_datetime(jd=festival_instance.interval.jd_start)
+    t2 = panchaanga.city.get_timezone_obj().julian_day_to_local_datetime(jd=festival_instance.interval.jd_end)
+    event.add('dtstart', t1.date())
+    event.add('dtend', t2.date())
+    event['X-MICROSOFT-CDO-ALLDAYEVENT'] = 'TRUE'
+    event['TRANSP'] = 'TRANSPARENT'
+    event['X-MICROSOFT-CDO-BUSYSTATUS'] = 'FREE'
+  elif festival_instance.interval is not None and festival_instance.interval.jd_end is not None and festival_instance.interval.jd_start is not None:
     # Starting or ending time is empty, e.g. harivasara, so no ICS entry
     t1 = panchaanga.city.get_timezone_obj().julian_day_to_local_datetime(jd=festival_instance.interval.jd_start)
     t2 = panchaanga.city.get_timezone_obj().julian_day_to_local_datetime(jd=festival_instance.interval.jd_end)
     event.add('dtstart', t1)
     event.add('dtend', t2)
-  if all_day:
-    event['X-MICROSOFT-CDO-ALLDAYEVENT'] = 'TRUE'
-    event['TRANSP'] = 'TRANSPARENT'
-    event['X-MICROSOFT-CDO-BUSYSTATUS'] = 'FREE'
+
   alarm = get_4_hr_display_alarm()
   event.add_component(alarm)
   return event
@@ -97,9 +109,6 @@ def set_interval(daily_panchaanga, festival_instance):
     festival_instance.interval.jd_start = daily_panchaanga.julian_day_start
   if festival_instance.interval.jd_end is None:
     festival_instance.interval.jd_end = daily_panchaanga.julian_day_start + 1
-  if festival_instance.name == 'kRttikA-maNDala-pArAyaNam':
-    festival_instance.interval = Interval(jd_start=daily_panchaanga.julian_day_start,
-                                          jd_end=daily_panchaanga.julian_day_start + 2)
 
 
 def add_festival_events(day_index, ics_calendar, panchaanga, languages, scripts):
@@ -110,6 +119,9 @@ def add_festival_events(day_index, ics_calendar, panchaanga, languages, scripts)
     all_day = False
     if festival_instance.interval is None:
       all_day = True
+    elif default_if_none(festival_instance.interval.get_jd_length(), 0) > 0.75:
+      all_day = True
+      
 
     set_interval(daily_panchaanga, festival_instance)
     if fest_id.find('samApanam') != -1:

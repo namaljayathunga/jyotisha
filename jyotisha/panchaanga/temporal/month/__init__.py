@@ -2,7 +2,7 @@ import sys
 
 from jyotisha.panchaanga.temporal import zodiac, tithi
 from jyotisha.panchaanga.temporal.zodiac import NakshatraDivision, AngaSpanFinder, Ayanamsha
-from jyotisha.panchaanga.temporal.zodiac.angas import AngaType
+from jyotisha.panchaanga.temporal.zodiac.angas import AngaType, Anga
 from sanskrit_data.schema import common
 from sanskrit_data.schema.common import JsonObject
 
@@ -85,12 +85,14 @@ class MultiFullmoonSolarMonthAdhikaAssigner(MultiLunarPhaseSolarMonthAdhikaAssig
 class SolsticePostDark10AdhikaAssigner(LunarMonthAssigner):
   """
   
-  द्व्यूनं द्वि-षष्टि-भागेन दिनं सौराच् च पार्वणम् । यत्कृताव् उपजायेते मध्येऽन्ते चाऽधिमासकौ ।। इति वेदाङ्गज्योतिषे।
-  केषुचिद् एव युगेषु, यथापेक्षम् अधिमासयोजनं स्यात्। किन्तु यदायदाऽधिकमासो योज्यते तदातदाऽयनान्ते एव शुचौ मासे (आषाढे) वा सहस्ये मासे (पौषे) वा द्वितीयशुचिमासरूपेण (द्वितीयाषाढरूपेण) वा द्वितीयसहस्यमासरूपेण (द्वितीयपौषरूपेण) वैवाऽधिकमासो योज्यते।
+  द्व्यूनं द्वि-षष्टि-भागेन दिनं सौराच् च पार्वणम् । यत्-कृताव् उपजायेते मध्येऽन्ते चाऽधिमासकौ ।। इति वेदाङ्गज्योतिषे।
+  केषुचिद् एव युगेषु, यथापेक्षम् अधिमासयोजनं स्यात्। किन्तु यदायदाऽधिकमासो योज्यते तदातदाऽयनान्ते एव शुचौ मासे (आषाढे) वा सहस्ये मासे (पौषे) वा द्वितीयशुचिमासरूपेण (द्वितीयाषाढरूपेण) वा द्वितीयसहस्यमासरूपेण (द्वितीयपौषरूपेण) वैवाऽधिकमासो योज्यते। वेदाङ्गज्योतिषानुरूपाया गणनाया प्रयोगः काष्ठमण्डपनगरे मल्लानां शासनकालपर्यन्तमासीदिति शिलालेखेभ्य एव ज्ञायते।
+
+  एतादृशी व्यवस्था च - यदा दृक्-सिद्ध-सौरायनारम्भ-दिने (दक्षिणायनस्य वोत्तरायणस्य वापि) कृष्ण-पक्षस्य दशमी, ततः परा वा तिथिर् भवति तदैव तेन कृष्ण-पक्षेण युक्तोऽमावास्यान्तो मासोऽधिको मास इति स्वीक्रियते, -यदा तु दृक्-सिद्ध-सौरायनारम्भ-दिने कृष्ण-पक्षस्य नवमी वा ततः पूर्वा वा तिथिर् भवति तदा तु तेन कृष्ण-पक्षेण युक्तोऽमावास्यान्तो मासोऽधिको मास इति न स्वीक्रियते।
   
-  एतादृशी व्यवस्था च - यदा दृक्-सिद्धसौरायनारम्भदिने (दक्षिणायनस्य वोत्तरायणस्य वापि) कृष्णपक्षस्य दशमी, ततः परा वा तिथिर् भवति तदैव तेन कृष्णपक्षेण युक्तोऽमावास्यान्तो मासोऽधिको मास इति स्वीक्रियते, -यदा तु दृक्सिद्धसौरायनारम्भदिने कृष्णपक्षस्य नवमी वा ततः पूर्वा वा तिथिर् भवति तदा तु तेन कृष्णपक्षेण युक्तोऽमावास्यान्तो मासोऽधिको मास इति न स्वीक्रियते।
+  Since the day's tithi varies by location, adhika-mAsa decision too can potentially vary by location. Instead, we use the actual tithi independent of location for our computation here.
   
-  वेदाङ्गज्योतिषानुरूपाया गणनाया प्रयोगः काष्ठमण्डपनगरे मल्लानां शासनकालपर्यन्तमासीदिति शिलालेखेभ्य एव ज्ञायते।
+  Solstice vs tithi Data : See https://vishvasa.github.io/jyotiSham/history/kauNDinyAyana/
   """
 
   @classmethod
@@ -112,60 +114,34 @@ class SolsticePostDark10AdhikaAssigner(LunarMonthAssigner):
       lunar_month = prev_jd_month + len(tithi_1_jds)
     return lunar_month
 
+
   @classmethod
-  def _get_solstice_lunar_month(cls, solstice_tropical_month_span):
-    """Get exact month for the solstice_tropical_month_span.jd_start.
-    
-    """
+  def _get_previous_post_dark_10_tropical_solar_month_span(cls, jd):
+    solstice_tropical_month_span = zodiac.get_previous_solstice_month_span(jd=jd)
     prev_solstice_tropical_month_span = zodiac.get_previous_solstice_month_span(jd=solstice_tropical_month_span.jd_start - 1)
-    if not cls._is_tithi_post_dark10(jd=solstice_tropical_month_span.jd_start):
-      if not cls._is_tithi_post_dark10(jd=prev_solstice_tropical_month_span.jd_start):
-        return solstice_tropical_month_span.anga
+    if cls._is_tithi_post_dark10(jd=solstice_tropical_month_span.jd_start):
+      if cls._is_tithi_post_dark10(jd=prev_solstice_tropical_month_span.jd_start):
+        return cls._get_previous_post_dark_10_tropical_solar_month_span(jd=prev_solstice_tropical_month_span.jd_start + 15)
       else:
-        prev_solstice_lunar_month = cls._get_solstice_lunar_month(solstice_tropical_month_span=prev_solstice_tropical_month_span)
-        lunar_month = cls._month_from_previous_jd_month_provisional(jd=solstice_tropical_month_span.jd_start, prev_jd=prev_solstice_tropical_month_span.jd_start, prev_jd_month=prev_solstice_lunar_month)
-        return lunar_month
+        return solstice_tropical_month_span
     else:
-      # Was there an adhika maasa in the recent past?
-      # If so, this month will not be one, even if post-dark10 solsticial. 
-      if not cls._is_tithi_post_dark10(jd=prev_solstice_tropical_month_span.jd_start):
-        return solstice_tropical_month_span.anga + 0.5
-      else:
-        prev_solstice_lunar_month = cls._get_solstice_lunar_month(solstice_tropical_month_span=prev_solstice_tropical_month_span)
-        lunar_month = cls._month_from_previous_jd_month_provisional(jd=solstice_tropical_month_span.jd_start, prev_jd=prev_solstice_tropical_month_span.jd_start, prev_jd_month=prev_solstice_lunar_month)
-        return lunar_month
+      return cls._get_previous_post_dark_10_tropical_solar_month_span(jd=prev_solstice_tropical_month_span.jd_start + 15)
+
+    
 
   def get_month_sunrise(self, daily_panchaanga):
     """ Assigns Lunar months to days in the period
         
     :return: 
     """
-    solstice_tropical_month_span = zodiac.get_previous_solstice_month_span(jd=daily_panchaanga.jd_sunrise)
-    solstice_lunar_month = SolsticePostDark10AdhikaAssigner._get_solstice_lunar_month(solstice_tropical_month_span=solstice_tropical_month_span)
-    is_solstice_lunar_month_adhika = str(solstice_lunar_month.index).endswith(".5")
-    if is_solstice_lunar_month_adhika:
-      lunar_month = self._month_from_previous_jd_month_provisional(jd=daily_panchaanga.jd_sunrise, prev_jd=solstice_tropical_month_span.jd_start, prev_jd_month=solstice_lunar_month)
-      return lunar_month
+    next_tithi_30_span = AngaSpanFinder.get_cached(anga_type=AngaType.TITHI, ayanaamsha_id=Ayanamsha.ASHVINI_STARTING_0).get_spans_in_period(jd_start=daily_panchaanga.jd_sunrise, jd_end=daily_panchaanga.jd_sunrise + 35, target_anga_id=30)[0]
+
+
+    tropical_solar_month_span = self._get_previous_post_dark_10_tropical_solar_month_span(jd = next_tithi_30_span.jd_end)
+    if tropical_solar_month_span.jd_start >= daily_panchaanga.jd_sunrise:
+      return tropical_solar_month_span.anga + 0.5
     else:
-      # At this point, we're sure that there was no previous postDark10 solstice.
-      # Are we in a lunar month containing solstice?
-      tropical_month = zodiac.get_tropical_month(jd=daily_panchaanga.jd_sunrise)
-      if tropical_month.index in [3, 9]:
-        anga_span_finder = AngaSpanFinder.get_cached(ayanaamsha_id=Ayanamsha.ASHVINI_STARTING_0, anga_type=AngaType.TROPICAL_MONTH)
-        next_solstice_tropical_month_span = anga_span_finder.find(jd1=daily_panchaanga.jd_sunrise, jd2=daily_panchaanga.jd_sunrise + 32, target_anga_id=tropical_month + 1)
-        span_finder = AngaSpanFinder.get_cached(anga_type=AngaType.TITHI, ayanaamsha_id=Ayanamsha.ASHVINI_STARTING_0)
-        tithi_1_jds = span_finder.get_spans_in_period(jd_start=daily_panchaanga.jd_sunrise, jd_end=next_solstice_tropical_month_span.jd_start, target_anga_id=1)
-        if len(tithi_1_jds) == 0:
-          solstice_lunar_month = SolsticePostDark10AdhikaAssigner._get_solstice_lunar_month(solstice_tropical_month_span=next_solstice_tropical_month_span)
-          return solstice_lunar_month
-
-      # The default case.
-      lunar_month = self._month_from_previous_jd_month_provisional(jd=daily_panchaanga.jd_sunrise, prev_jd=solstice_tropical_month_span.jd_start, prev_jd_month=solstice_lunar_month)
-      return lunar_month
-
-
-
-
+      return self._month_from_previous_jd_month_provisional(jd=daily_panchaanga.jd_sunrise, prev_jd=tropical_solar_month_span.jd_start, prev_jd_month=tropical_solar_month_span.anga + 0.5)
 
 
 

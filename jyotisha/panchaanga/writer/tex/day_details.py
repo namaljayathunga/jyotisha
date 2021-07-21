@@ -5,15 +5,31 @@ from jyotisha.panchaanga.temporal import time, names
 
 def get_lagna_data_str(daily_panchaanga, scripts, time_format):
   jd = daily_panchaanga.julian_day_start
-  lagna_data_str = 'लग्नम्–'
+  lagna_data_str = jyotisha.custom_transliteration.tr('lagnAni—', scripts[0])
   for lagna_ID, lagna_end_jd in daily_panchaanga.lagna_data:
     lagna = names.NAMES['RASHI_NAMES']['sa'][scripts[0]][lagna_ID]
-    lagna_data_str = '%s\\anga{%s}{%s} ' % \
+    lagna_data_str = '%s\\lagna{%s}{%s} ' % \
                      (lagna_data_str, lagna,
                       time.Hour(24 * (lagna_end_jd - jd)).to_string(
                         format=time_format))
   return lagna_data_str
 
+
+def get_shraaddha_tithi_data_str(daily_panchaanga, scripts, time_format):
+  if daily_panchaanga.shraaddha_tithi == []:
+    stithi_data_str = '---'
+  else:
+    if daily_panchaanga.shraaddha_tithi[0].index == 0:
+      stithi_data_str = jyotisha.custom_transliteration.tr('zUnyatithiH', scripts[0])
+    else:
+      t1 = names.NAMES['TITHI_NAMES']['sa'][scripts[0]][daily_panchaanga.shraaddha_tithi[0].index]
+      if len(daily_panchaanga.shraaddha_tithi) == 2:
+        t2 = names.NAMES['TITHI_NAMES']['sa'][scripts[0]][daily_panchaanga.shraaddha_tithi[1].index]
+        stithi_data_str = '%s/%s (%s)' % \
+                                (t1.split('-')[-1], t2.split('-')[-1], jyotisha.custom_transliteration.tr('tithidvayam', scripts[0]))
+      else:
+        stithi_data_str = '%s' % (t1.split('-')[-1])
+  return stithi_data_str
 
 def get_raahu_yama_gulika_strings(daily_panchaanga, time_format):
   jd = daily_panchaanga.julian_day_start
@@ -27,12 +43,22 @@ def get_raahu_yama_gulika_strings(daily_panchaanga, time_format):
       format=time_format),
     time.Hour(24 * (daily_panchaanga.day_length_based_periods.eight_fold_division.yama.jd_end - jd)).to_string(
       format=time_format))
+  raatri_yama = '%s--%s' % (
+    time.Hour(24 * (daily_panchaanga.day_length_based_periods.eight_fold_division.raatri_yama.jd_start - jd)).to_string(
+      format=time_format),
+    time.Hour(24 * (daily_panchaanga.day_length_based_periods.eight_fold_division.raatri_yama.jd_end - jd)).to_string(
+      format=time_format))
   gulika = '%s--%s' % (
     time.Hour(24 * (daily_panchaanga.day_length_based_periods.eight_fold_division.gulika.jd_start - jd)).to_string(
       format=time_format),
     time.Hour(24 * (daily_panchaanga.day_length_based_periods.eight_fold_division.gulika.jd_end - jd)).to_string(
       format=time_format))
-  return gulika, rahu, yama
+  raatri_gulika = '%s--%s' % (
+    time.Hour(24 * (daily_panchaanga.day_length_based_periods.eight_fold_division.raatri_gulika.jd_start - jd)).to_string(
+      format=time_format),
+    time.Hour(24 * (daily_panchaanga.day_length_based_periods.eight_fold_division.raatri_gulika.jd_end - jd)).to_string(
+      format=time_format))
+  return gulika, rahu, yama, raatri_gulika, raatri_yama
 
 
 def get_karaNa_data_str(daily_panchaanga, scripts, time_format):
@@ -94,7 +120,7 @@ def get_raashi_data_str(daily_panchaanga, scripts, time_format):
       if rashi_end_jd is None:
         rashi_data_str = '%s\\mbox{%s}' % (rashi_data_str, rashi)
       else:
-        rashi_data_str = '%s\\mbox{%s\\RIGHTarrow\\textsf{%s}}' % \
+        rashi_data_str = '%s\\mbox{%s\\RIGHTarrow{%s}}' % \
                          (rashi_data_str, rashi,
                           time.Hour(24 * (rashi_end_jd - jd)).to_string(
                             format=time_format))
@@ -140,7 +166,7 @@ def get_tithi_data_str(daily_panchaanga, scripts, time_format):
                           24 * (tithi_end_jd - daily_panchaanga.jd_sunrise)).to_string(format='gg-pp'),
                         time.Hour(24 * (tithi_end_jd - jd)).to_string(
                           format=time_format))
-      if iTithi == 2:
-          tithi_data_str += '\\avamA{}'
+    if iTithi == 2:
+      tithi_data_str += '\\avamA{}'
 
   return tithi_data_str

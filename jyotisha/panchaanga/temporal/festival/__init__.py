@@ -2,7 +2,7 @@ import logging
 import re
 import sys
 
-from indic_transliteration import sanscript, language_code_to_script, xsanscript
+from indic_transliteration import sanscript, language_code_to_script
 from jyotisha import custom_transliteration
 from jyotisha.util import default_if_none
 from sanskrit_data.schema import common
@@ -32,13 +32,15 @@ class FestivalInstance(common.JsonObject):
     if self.interval is None:
       return name
     else:
-      return "%s (%s)" % (name, self.interval.to_hour_text(script=sanscript.IAST, tz=timezone, reference_date=reference_date))
+      return "%s (%s)" % (name, self.interval.to_hour_text(script=sanscript.ISO, tz=timezone, reference_date=reference_date))
 
   def get_human_names(self, fest_details_dict):
     from jyotisha.panchaanga.temporal.festival import rules
     fest_details = fest_details_dict.get(self.name, rules.HinduCalendarEvent(id=self.name))
     if fest_details.names is None:
-      fest_details.names = {"sa": [xsanscript.transliterate(self.name.replace("~", " "), sanscript.HK, sanscript.DEVANAGARI)]}
+      sa_name = sanscript.transliterate(self.name.replace("~", " "), sanscript.roman.HK_DRAVIDIAN, sanscript.DEVANAGARI)
+      sa_name = rules.inverse_clean_id(sa_name)
+      fest_details.names = {"sa": [sa_name]}
     import copy
     names = copy.deepcopy(fest_details.names)
     return names
@@ -72,12 +74,12 @@ class FestivalInstance(common.JsonObject):
     if self.ordinal is not None:
       name = name + "~\\#{%s}" % custom_transliteration.tr(str(self.ordinal), script=scripts[0])
 
-    if self.interval is None:
-      return name
-    else:
+    if self.interval is not None and self._show_interval():
       return "%s%s" % (name, self.interval.to_hour_tex(script=scripts[0], tz=timezone, reference_date=reference_date))
+    else:
+      return name
 
-  def get_full_title(self, fest_details_dict, languages=["sa"], scripts=[xsanscript.DEVANAGARI]):
+  def get_full_title(self, fest_details_dict, languages=["sa"], scripts=[sanscript.DEVANAGARI]):
     name_details = self.get_best_transliterated_name(languages=languages, scripts=scripts, fest_details_dict=fest_details_dict)
     ordinal_str = " #%s" % custom_transliteration.tr(str(self.ordinal), script=name_details["script"]) if self.ordinal is not None else ""
     return "%s%s" % (name_details["text"].replace("~", "-"), ordinal_str)
@@ -85,7 +87,7 @@ class FestivalInstance(common.JsonObject):
   def md_code(self, languages, scripts, timezone, fest_details_dict, header_md):
     title = self.get_full_title(languages=languages, scripts=scripts, fest_details_dict=fest_details_dict)
     heading = "%s %s" % (header_md, title)
-    if self.interval is None:
+    if self.interval is None or  not self._show_interval():
       md = heading
     else:
       start_time_str = "" if self.interval.jd_start is None else timezone.julian_day_to_local_time(self.interval.jd_start).get_hour_str()
@@ -95,6 +97,15 @@ class FestivalInstance(common.JsonObject):
     if description != "":
       md = "%s\n\n%s" % (md, description)
     return md
+
+  def _show_interval(self):
+    if self.interval.jd_start is None and self.interval.jd_end is None:
+      return False
+
+    if self.interval.jd_start is not None and self.interval.jd_end is not None and self.interval.get_jd_length() > 0.9 and self.name.find('SaDazIti') == -1:
+      return False
+    else:
+      return True
 
   def __lt__(self, other):
     return self.name < other.name
@@ -119,7 +130,7 @@ class TransitionFestivalInstance(FestivalInstance):
 
 
 def get_description(festival_instance, fest_details_dict, script, truncate=True, header_md="#####"):
-  fest_id = festival_instance.name
+  fest_id = festival_instance.name.replace('/', ' or ')
   desc = None
   if re.match('aGgArakI.*saGkaTahara-caturthI-vratam', fest_id):
     fest_id = fest_id.replace('aGgArakI~', '')
@@ -170,6 +181,65 @@ def get_description(festival_instance, fest_details_dict, script, truncate=True,
                                                                               include_url=True, include_shlokas=True,
                                                                               truncate=True, header_md=header_md)
   return default_if_none(desc, "")
+
+def get_description_tex(festival_instance, fest_details_dict, script):
+  fest_id = festival_instance.name.replace('/', ' or ')
+  desc = {}
+  if re.match('aGgArakI.*saGkaTahara-caturthI-vratam', fest_id):
+    fest_id = fest_id.replace('aGgArakI~', '')
+    if fest_id in fest_details_dict:
+      desc = fest_details_dict[fest_id].get_description_dict(script=script)
+      desc['detailed'] += 'When `caturthI` occurs on a Tuesday, it is known as `aGgArakI` and is even more sacred.'
+    else:
+      logging.warning('No description found for caturthI festival %s!' % fest_id)
+  elif re.match('.*-.*-EkAdazI', fest_id) is not None:
+    # Handle ekaadashii descriptions differently
+    ekad = '-'.join(fest_id.split('-')[1:])  # get rid of sarva etc. prefix!
+    ekad_suff_pos = ekad.find(' (')
+    if ekad_suff_pos != -1:
+      # ekad_suff = ekad[ekad_suff_pos + 1:-1]
+      ekad = ekad[:ekad_suff_pos]
+    if ekad in fest_details_dict:
+      desc = fest_details_dict[ekad].get_description_dict(script=script)
+    else:
+      logging.warning('No description found for Ekadashi festival %s (%s)!' % (ekad, fest_id))
+  elif fest_id.find('saGkrAntiH') != -1:
+    # Handle Sankranti descriptions differently
+    planet_trans = fest_id.split('~')[0]  # get rid of ~(rAshi name) etc.
+    if planet_trans in fest_details_dict:
+      desc = fest_details_dict[planet_trans].get_description_dict(script=script)
+    else:
+      logging.warning('No description found for festival %s!' % planet_trans)
+  elif fest_id in fest_details_dict:
+      desc = fest_details_dict[fest_id].get_description_dict(script=script)
+
+
+  if desc is None:
+      # Check approx. match
+      matched_festivals = []
+      for fest_key in fest_details_dict:
+        if fest_id.startswith(fest_key):
+          matched_festivals += [fest_key]
+      if matched_festivals == []:
+        logging.warning('No description found for festival %s!' % fest_id)
+      elif len(matched_festivals) > 1:
+        logging.warning('No exact match found for festival %s! Found more than one approximate match: %s' % (
+          fest_id, str(matched_festivals)))
+      else:
+        desc = fest_details_dict[matched_festivals[0]].get_description_dict(script=script)
+  # Returns '{blurb}{detailed-description}{image}{shlokas}{references}'
+  if desc == {}:
+    logging.warning(fest_id)
+    return '{}{}{}{}{} %%EMPTY DESCRIPTION!'
+  else:
+    desc['detailed'] = desc['detailed'].replace('&', '\\&').replace('\n', '\\\\').replace('\\\\\\\\', '\\\\')
+    desc['detailed'] = desc['detailed'][:1].capitalize() + desc['detailed'][1:]
+    desc['shlokas'] = desc['shlokas'].replace('\n', '\\\\').replace('\\\\\\\\', '\\\\').replace('\\\\  \\\\', '\\\\\\smallskip ')
+    desc['references'] = desc['references'].replace('- References\n  ', '')
+    return '{%s}{%s}{%s}{%s}{%s}' % (desc['blurb'], 
+                                     desc['detailed'],
+                                     desc['image'], desc['shlokas'],
+                                     desc['references'])
 
 
 # Essential for depickling to work.

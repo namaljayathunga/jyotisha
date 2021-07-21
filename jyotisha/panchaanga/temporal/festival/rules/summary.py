@@ -1,6 +1,6 @@
 import logging
 
-from indic_transliteration import sanscript, xsanscript
+from indic_transliteration import sanscript
 from jyotisha import custom_transliteration
 from jyotisha.panchaanga.temporal import AngaType, names
 from jyotisha.util import default_if_none
@@ -62,9 +62,9 @@ def get_description_str_with_shlokas(include_shlokas, rule, script):
       else:
         descriptions[language] = rule.description[language]
   description_items = sorted(descriptions.items(), key=lambda pair: ["en", "sa", "ta"].index(pair[0]))
-  description_string = "\n\n".join([x[1] for x in description_items])
+  description_string = "\n\n".join([x[1].strip() for x in description_items])
   if rule.shlokas is not None and include_shlokas:
-    shlokas = xsanscript.transliterate(rule.shlokas.replace("\n", "  \n"), xsanscript.DEVANAGARI, script)
+    shlokas = sanscript.transliterate(rule.shlokas.strip().replace("\n", "  \n"), sanscript.DEVANAGARI, script)
     description_string = description_string + '\n\n' + shlokas + '\n\n'
   return description_string
 
@@ -79,7 +79,7 @@ def get_english_description(description_string, rule):
       # We much have matching backquotes, the contents of which can be neatly transliterated
       for i, piece in enumerate(pieces):
         if (i % 2) == 1:
-          pieces[i] = custom_transliteration.tr(piece, xsanscript.IAST, False)
+          pieces[i] = custom_transliteration.tr(piece, sanscript.ISO, False)
       description_string = ''.join(pieces)
     else:
       logging.warning('Unmatched backquotes in description string: %s' % description_string)
@@ -92,10 +92,10 @@ def get_references_md(rule):
     ref_list = '- References\n'
     if rule.references_primary is not None:
       for ref in rule.references_primary:
-        ref_list += '  - %s\n' % transliterate_quoted_text(ref, sanscript.IAST)
+        ref_list += '  - %s\n' % transliterate_quoted_text(ref, sanscript.ISO)
     elif rule.references_secondary is not None:
       for ref in rule.references_secondary:
-        ref_list += '  - %s\n' % transliterate_quoted_text(ref, sanscript.IAST)
+        ref_list += '  - %s\n' % transliterate_quoted_text(ref, sanscript.ISO)
   return ref_list
 
 
@@ -107,21 +107,21 @@ def get_timing_summary(rule):
   angam = ''
   from jyotisha.panchaanga.temporal.festival.rules import RulesRepo
   if rule.timing is not None and rule.timing.month_type is not None:
-    month = ' of %s (%s) month' % (rule.timing.get_month_name_en(script=xsanscript.IAST), rule.timing.month_type.replace("_month", "").replace("_", " "))
+    if rule.timing.month_type in ['julian', 'gregorian'] and rule.timing.year_start is not None:
+      blurb = "Event occured on %04d-%02d-%02d (%s). " % (rule.timing.year_start, rule.timing.month_number, rule.timing.anga_number, rule.timing.month_type)
+      if rule.timing.julian_handling is not None:
+        blurb += 'Julian date was %s in this reckoning. ' % (rule.timing.julian_handling)
+      return blurb
+    month = ' of %s (%s) month' % (rule.timing.get_month_name_en(script=sanscript.ISO), rule.timing.month_type.replace("_month", "").replace("_", " "))
   if rule.timing is not None and rule.timing.anga_type is not None:
-    # logging.debug(rule.name)
-    # if rule.name.startswith("ta:"):
-    #   anga = custom_transliteration.tr(rule.name[3:], sanscript.TAMIL).replace("~", " ").strip("{}") + ' is observed on '
-    # else:
-    #   anga = custom_transliteration.tr(rule.name, sanscript.DEVANAGARI).replace("~", " ") + ' is observed on '
-    angam = 'Observed on '
-
     if rule.timing.anga_type in ['tithi', 'yoga', 'nakshatra']:
+      angam = 'Observed on '
       anga_type = AngaType.from_name(name=rule.timing.anga_type)
-      angam += '%s %s' % (anga_type.names_dict[sanscript.IAST][rule.timing.anga_number], rule.timing.anga_type)
+      angam += '%s %s' % (anga_type.names_dict[sanscript.ISO][rule.timing.anga_number], rule.timing.anga_type)
     elif rule.timing.anga_type == 'day':
+      angam = 'Observed on '
       angam += 'day %d' % rule.timing.anga_number
-  else:
+  else: # No timing or anga_type
     if rule.description is None:
       logging.debug("No anga_type in %s or description even!!", rule.id)
 
@@ -131,15 +131,13 @@ def get_timing_summary(rule):
     blurb += month
   if blurb != '':
     if rule.timing.month_type not in [RulesRepo.GREGORIAN_MONTH_DIR, RulesRepo.JULIAN_MONTH_DIR]:
-      kaala = names.translate_or_transliterate(rule.timing.get_kaala(), script=xsanscript.IAST, source_script=xsanscript.DEVANAGARI)
+      kaala = names.translate_or_transliterate(rule.timing.get_kaala(), script=sanscript.ISO, source_script=sanscript.DEVANAGARI)
       priority = rule.timing.get_priority()
       kaala_str = ' (%s/%s)' % (kaala, priority)
     else:
       kaala_str = ""
     blurb += "%s. " % kaala_str
-    if rule.timing.julian_handling is not None:
-      blurb += 'Julian date was %s in this reckoning. ' % (rule.timing.julian_handling)
     # logging.debug(blurb)
   if rule.timing.year_start is not None:
-    blurb += "The event has been commemorated since it occurred in %s (%s era).  \n" % (rule.timing.year_start, rule.timing.year_start_era)
+    blurb += "The event occurred in %s (%s era).  \n" % (rule.timing.year_start, rule.timing.year_start_era.capitalize())
   return blurb

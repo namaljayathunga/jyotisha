@@ -50,7 +50,7 @@ class Panchaanga(common.JsonObject):
 
     self.duration = int(self.jd_end - self.jd_start) + 1
 
-    # For accurate festival assignment, we sometimes need panchaanga information about succeeding or preceeding days. 
+    # For accurate festival assignment, we sometimes need panchaanga information about succeeding or preceding days. 
     # For example, consider a festival to be selebrated during naxatra 27 in solar sideral month 9. If naxatra 27 occurs twice in sidereal_solar_month 9 (gap of 27+ daus), the latter occurence is to be selected - the former day will not get a festival. 
     self.duration_posterior_padding = int(self.duration + 30)
     self.duration_prior_padding = 2
@@ -67,8 +67,6 @@ class Panchaanga(common.JsonObject):
     """Compute the entire panchaanga
     """
 
-    nDays = self.duration_posterior_padding
-
     # INITIALISE VARIABLES
     self.date_str_to_panchaanga: Dict[str, daily.DailyPanchaanga] = {}
 
@@ -77,8 +75,7 @@ class Panchaanga(common.JsonObject):
     # Compute all parameters -- sun/moon latitude/longitude etc #
     #############################################################
 
-    for d in range(-self.duration_prior_padding, nDays - 1):
-      # TODO: Eventually, we are shifting to an array of daily panchangas. Reason: Better modularity.
+    for d in range(-self.duration_prior_padding, self.duration_posterior_padding - 1):
       # The below block is temporary code to make the transition seamless.
       date_d = time.jd_to_utc_gregorian(self.jd_start + d)
       date_d.set_time_to_day_start()
@@ -199,10 +196,15 @@ class Panchaanga(common.JsonObject):
     for date in self.festival_id_to_days.pop(fest_id, []):
       self.date_str_to_panchaanga[date.get_date_str()].festival_id_to_instance.pop(fest_id, None)
 
-  def add_festival(self, fest_id, date):
-    self.add_festival_instance(date=date, festival_instance=FestivalInstance(name=fest_id))
+  def add_festival(self, fest_id, date, interval_id="full_day"):
+    if date.get_date_str() not in self.date_str_to_panchaanga:
+      return 
+    interval = self.date_str_to_panchaanga[date.get_date_str()].get_interval(interval_id=interval_id)
+    self.add_festival_instance(date=date, festival_instance=FestivalInstance(name=fest_id, interval=interval))
 
   def add_festival_instance(self, festival_instance, date):
+    from jyotisha.panchaanga.temporal.festival import rules
+    festival_instance.name = rules.clean_id(id=festival_instance.name)
     p_fday = self.date_str_to_panchaanga.get(date.get_date_str(), None)
     if p_fday is not None:
       p_fday.festival_id_to_instance[festival_instance.name] = festival_instance
