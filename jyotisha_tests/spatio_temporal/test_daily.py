@@ -43,7 +43,7 @@ def test_solar_day():
     city=chennai, julian_day=time.utc_gregorian_to_jd(Date(2018, 1, 14)))
   assert panchaanga.solar_sidereal_date_sunset.day == 1
   assert panchaanga.solar_sidereal_date_sunset.month == 10
-  assert panchaanga.solar_sidereal_date_sunset.month_transition == 2458132.8291680976
+  numpy.testing.assert_approx_equal(panchaanga.solar_sidereal_date_sunset.month_transition, 2458132.8291680976)
 
   panchaanga = daily.DailyPanchaanga.from_city_and_julian_day(
     city=chennai, julian_day=time.utc_gregorian_to_jd(Date(2018, 2, 12)))
@@ -74,7 +74,7 @@ def test_solar_day():
 def test_sunrise_mtv():
   city = City.get_city_from_db('Cupertino') 
   panchaanga = daily.DailyPanchaanga(city=city, date=Date(year=2018, month=11, day=11))
-  panchaanga.compute_sun_moon_transitions()
+  panchaanga.compute_graha_transitions()
   numpy.testing.assert_approx_equal(panchaanga.jd_sunrise, 2458434.11)
 
 
@@ -113,6 +113,26 @@ def test_get_anga_data_1981_12_23():
   angas = [s.anga.index for s in panchaanga.sunrise_day_angas.get_anga_spans_in_interval(interval=Interval(jd_start=panchaanga.jd_sunrise, jd_end=panchaanga.jd_next_sunrise), anga_type=AngaType.NAKSHATRA)]
   assert angas == [16, 17]
 
+
+def test_get_anga_data_md():
+  panchaanga = daily.DailyPanchaanga(chennai, date=Date(2025, 6, 6))
+  md = panchaanga.sunrise_day_angas.get_anga_data_md(anga_type=AngaType.NAKSHATRA, script=sanscript.DEVANAGARI,
+                                                reference_jd=panchaanga.julian_day_start)
+  assert md == "**नक्षत्रम्** — हस्तः►06:32; चित्रा►"
+
+  md = panchaanga.sunrise_day_angas.get_anga_data_md(anga_type=AngaType.RASHI, script=sanscript.DEVANAGARI,
+                                                     reference_jd=panchaanga.julian_day_start)
+
+  assert md == "**राशिः** — कन्या►20:05; तुला►"
+
+
+def test_get_pancha_paxi_activities():
+  city = City.get_city_from_db('Chennai')
+  from jyotisha.panchaanga.temporal import zodiac
+  panchaanga = daily.DailyPanchaanga(city=city, date=Date(year=2022, month=1, day=2))
+  paxi_activities = panchaanga.get_pancha_paxi_activities()
+  assert paxi_activities.cock[0].name == 1
+  assert paxi_activities.cock[23].name == 4
 
 def test_get_lagna_data():
   city = City.get_city_from_db('Chennai') 

@@ -1,5 +1,4 @@
 import codecs
-import copy
 import logging
 import os
 import sys
@@ -9,12 +8,14 @@ import methodtools
 import regex
 import toml
 from curation_utils import file_helper
+from indic_transliteration import sanscript
+from sanskrit_data import collection_helper
+from sanskrit_data.schema import common
 from timebudget import timebudget
 
 from jyotisha import custom_transliteration
 from jyotisha.panchaanga.temporal import names
-from sanskrit_data.schema import common
-from indic_transliteration import sanscript
+
 
 def transliterate_quoted_text(text, script):
   transliterated_text = text
@@ -59,6 +60,11 @@ class HinduCalendarEventTiming(common.JsonObject):
         "type": "integer",
         "description": "",
       },
+      "adhika_maasa_handling": {
+        "type": "string",
+        "enum": ["adhika_only", "adhika_if_exists", "adhika_and_nija", "nija_only"],
+        "description": "",
+      },
       "anga_type": {
         "type": "string",
         "enum": ["tithi", "nakshatra", "yoga", "day"],
@@ -91,22 +97,33 @@ class HinduCalendarEventTiming(common.JsonObject):
     }
   }))
 
-  def __init__(self, month_type, month_number, anga_type, anga_number, kaala, year_start):
-    self.month_type = month_type
-    self.month_number = month_number
-    self.anga_type = anga_type
-    self.anga_number = anga_number
-    self.kaala = kaala
-    self.year_start = year_start
-    self.anchor_festival_id = None
-    self.offset = None
-    self.julian_handling = None
+  def from_details(cls, month_type, month_number, anga_type, anga_number, kaala, year_start, adhika_maasa_handling):
+    # This is not a constructor so as to not jinx (de)serialization.
+    timing = HinduCalendarEventTiming()
+    timing.month_type = month_type
+    timing.month_number = month_number
+    timing.anga_type = anga_type
+    timing.anga_number = anga_number
+    timing.kaala = kaala
+    timing.year_start = year_start
+    timing.adhika_maasa_handling = adhika_maasa_handling
+    timing.anchor_festival_id = None
+    timing.offset = None
+    timing.julian_handling = None
+    timing.validate_schema()
+    return timing
 
   def get_kaala(self):
     return "सूर्योदयः" if self.kaala is None else self.kaala
 
   def get_priority(self):
     return "puurvaviddha" if self.priority is None else self.priority
+
+  def get_adhika_maasa_handling(self):
+    if self.month_type == RulesRepo.LUNAR_MONTH_DIR:
+      return "nija_only" if self.adhika_maasa_handling is None else self.adhika_maasa_handling
+    else:
+      return None
     
   def get_month_name_en(self, script):
     return names.get_month_name_en(month_type=self.month_type, month_number=self.month_number, script=script)
@@ -165,6 +182,7 @@ class HinduCalendarEvent(common.JsonObject):
   }))
   
   def __init__(self, id):
+    super().__init__()
     self.id = id
     self.timing = None
     self.tags = None
@@ -246,6 +264,8 @@ class HinduCalendarEvent(common.JsonObject):
       description_dict['image'] = self.image
 
     description_dict['references'] = summary.get_references_md(self)
+    
+    description_dict['url'] = summary.get_url(self)
 
     if self.shlokas is not None:
       description_dict['shlokas'] = sanscript.transliterate(self.shlokas.replace("\n", "  \n"), sanscript.DEVANAGARI, script)
@@ -375,7 +395,7 @@ class RulesCollection(common.JsonObject):
     self.tree = collection_helper.tree_maker(leaves=self.name_to_rule.values(), path_fn=lambda x: x.get_storage_file_name(base_dir="", undo_conversions=False).replace(".toml", ""))
 
   def get_month_anga_fests(self, month_type, month, anga_type_id, anga):
-    if int(month) != month:
+    if int(month) != month and month != 0:
       # Deal with adhika mAsas
       month_str = "%02d.5" % month
     else:
@@ -384,19 +404,88 @@ class RulesCollection(common.JsonObject):
     if isinstance(anga, Anga):
       anga = anga.index
     try:
-      return self.tree[month_type.lower()][anga_type_id.lower()][month_str]["%02d" % anga]
+      subtree = self.tree[month_type.lower()][anga_type_id.lower()][month_str]["%02d" % anga]
+      tree_out = {}
+      for x, y in subtree.items():
+        if x != collection_helper.LEAVES_KEY:
+          tree_out[x] = y[collection_helper.LEAVES_KEY][0]
+      return tree_out
     except KeyError:
       return {}
 
   def get_possibly_relevant_fests(self, month_type, month, anga_type_id, angas):
+    def _get_month(anga):
+      if isinstance(anga, Tithi):
+        return anga.month.index
+      else:
+        return month
+      
     fest_dict = {}
     for anga in angas:
       from jyotisha.panchaanga.temporal.zodiac.angas import Tithi
-      if isinstance(anga, Tithi) and month_type == RulesRepo.LUNAR_MONTH_DIR:
-        month = anga.month.index
-      for m in [month, 0]:
-        fest_dict.update(self.get_month_anga_fests(month_type=month_type, month=m, anga_type_id=anga_type_id, anga=anga))
+      if month_type == RulesRepo.LUNAR_MONTH_DIR:
+        _m = _get_month(anga)
+        months_list = [_m, 0]
+        is_adhika = int(_m) != _m
+
+        if not is_adhika:
+          # Add the adhika masa also
+          months_list.append(_m - 0.5)
+        else:
+          # Add the nija masa also
+          months_list.append(_m + 0.5)
+      else:
+        months_list = [month, 0]
+
+      if int(month) != month:
+        if month - 1 in months_list:
+          # Previous "adhika" does not exist - added because we are looking at the month of the supplied angas
+          months_list.remove(month - 1)
+        if month - 0.5 in months_list:
+          # Previous maasa is also not relevant!
+          months_list.remove(month - 0.5)
+
+      for m in months_list:
+        new_fests = self.get_month_anga_fests(month_type=month_type, month=m, anga_type_id=anga_type_id, anga=anga)
+        if month_type == RulesRepo.LUNAR_MONTH_DIR:
+          if m == 0:
+            _filter_by_adhikamaasa_relevance(month=month, fest_dict=new_fests)
+          else:
+            m = _get_month(anga=anga)
+            _filter_by_adhikamaasa_relevance(month=m, fest_dict=new_fests)
+        fest_dict.update(new_fests)
+
+    def _check_month_tithi_match(month, angas):
+      for anga in angas:
+        if anga.month.index in (month, fest_rule.timing.month_number) and anga.index == fest_rule.timing.anga_number:
+          return True
+      return False
+
+    del_fest = []
+    for fest in fest_dict:
+      fest_rule = fest_dict[fest]
+      if fest_rule.timing.anga_type == 'tithi' and fest_rule.timing.month_type == RulesRepo.LUNAR_MONTH_DIR:
+        if not _check_month_tithi_match(month, angas):
+          del_fest.append(fest)
+
+    if del_fest:
+      for fest in del_fest:
+        del fest_dict[fest]
+
     return fest_dict
+  
+
+def _filter_by_adhikamaasa_relevance(month, fest_dict):
+  del_fests = []  # adhika fests to be deleted in nija masas, and nija festivals to be deleted in adhika masas!
+  is_adhika = int(month) != month
+  for fest in fest_dict:
+    adhika_maasa_handling = fest_dict[fest].timing.get_adhika_maasa_handling()
+    if adhika_maasa_handling == 'adhika_only' and not is_adhika:
+      del_fests.append(fest)
+    elif adhika_maasa_handling == 'nija_only' and is_adhika:
+      del_fests.append(fest)
+  for fest in del_fests:
+    del fest_dict[fest]
 
 
 # Essential for depickling to work.
@@ -428,13 +517,3 @@ def load_repos():
 
 
 load_repos()
-
-
-
-if __name__ == '__main__':
-  # dump_repos()
-  rules_collection = RulesCollection.get_cached(repos_tuple=rule_repos, julian_handling=None)
-  # rules_collection = RulesCollection(repos=[RulesRepo(name="mahApuruSha/xatra-later")], julian_handling=None)
-  rules_collection.fix_filenames()
-  # rules_collection.fix_content()
-

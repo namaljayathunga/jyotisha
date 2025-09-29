@@ -30,24 +30,24 @@ def tr(text, script, titled=True, source_script=sanscript.roman.HK_DRAVIDIAN):
   """
   
   NOTE: Please don't put your custom tex/ md/ ics whatever code here and pollute core library functions. Wrap this in your own functions if you must. Functions should be atomic."""
-  if script == 'hk':
+  if script in ['hk', 'itrans']:
     script = sanscript.roman.HK_DRAVIDIAN
+    titled = False
   if text == '':
     return ''
   # TODO: Fix this ugliness.
   t = text.replace('~', '##~##')  # Simple fix to prevent transliteration of ~
-  transliterated_text = sanscript.transliterate(data=t, _from=source_script, _to=script).replace('C', 'Ch').replace('c', 'ch')
+  transliterated_text = sanscript.transliterate(data=t, _from=source_script, _to=script, togglers={'##'}).replace('C', 'Ch').replace('c', 'ch')
   if titled:
     transliterated_text = transliterated_text.title()
-
   if script == sanscript.TAMIL:
     transliterated_text = sanscript.SCHEMES[sanscript.TAMIL].apply_roman_numerals(transliterated_text)
     # transliterated_text = clean_tamil_Na(transliterated_text)
-  if script.startswith('iast'):
+  if script.startswith('iast') or script.startswith('iso'):
     transliterated_text = transliterated_text.replace('ṉ', 'n')
-    caret_accent = '̂'
-    for _match in re.findall(caret_accent + '.', transliterated_text):
-      transliterated_text = transliterated_text.replace(_match, _match.lower())
+    for accent_char in ['◌̥', '̂', '̥']:
+      for _match in re.findall(accent_char + '.', transliterated_text):
+        transliterated_text = transliterated_text.replace(_match, _match.lower())
   if script == 'telugu' or script == sanscript.TELUGU:
     transliterated_text = transliterated_text.replace('ऩ', 'న')
   return transliterated_text
@@ -136,6 +136,9 @@ def transliterate_from_language(text, language, script):
     transliterated_text = tr(text, script)
   else:
     source_script = language_code_to_script[language]
-    transliterated_text = sanscript.transliterate(text, source_script, script)
+    transliterated_text = sanscript.transliterate(data=text, _from=source_script, _to=script, togglers={'##'})
+    if script == sanscript.TAMIL:
+      transliterated_text = sanscript.SCHEMES[sanscript.TAMIL].apply_roman_numerals(transliterated_text)
+
   return transliterated_text
 

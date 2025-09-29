@@ -29,6 +29,8 @@ class Graha(JsonObject):
   MARS = "mars"
   SATURN = "saturn"
   RAHU = "rahu"
+  KETU = "ketu"
+  PLANETS_REVERSE_ORDER = [SATURN, JUPITER, MARS, VENUS, MERCURY, RAHU, KETU]
 
   BODY_TO_ANGULAR_DIA_DEGREES = {SUN: .53, JUPITER: 0.0147222, VENUS: 0.0183333, SATURN: 0.005583, MARS: 0.006972, MERCURY: 0.00361111}
 
@@ -58,7 +60,7 @@ class Graha(JsonObject):
     elif self.body_name == Graha.SATURN:
       body_id = swe.SATURN
     elif self.body_name == Graha.RAHU:
-      body_id = 10
+      body_id = swe.TRUE_NODE
     return body_id
 
   @methodtools.lru_cache(maxsize=10)
@@ -74,12 +76,10 @@ class Graha(JsonObject):
       from jyotisha.panchaanga.temporal.zodiac import Ayanamsha
       return (self.get_longitude(jd=jd) - Ayanamsha.singleton(ayanaamsha_id).get_offset(jd)) % 360
     else:
-      return swe.calc_ut(jd, self._get_swisseph_id())[0][0]
-
-  @methodtools.lru_cache(maxsize=10)
-  def get_longitude_anga(self, jd):
-    from jyotisha.panchaanga.temporal import Anga, AngaType
-    return Anga(index=self.get_longitude(jd=jd) + 1, anga_type_id=AngaType.DEGREE.name)
+      
+      if self.body_name == Graha.KETU:
+        return (swe.degnorm(swe.calc_ut(jd, swe.TRUE_NODE)[0][0]) + 180) % 360
+      return swe.degnorm(swe.calc_ut(jd, self._get_swisseph_id())[0][0])
 
   def get_transits(self, jd_start: float, jd_end: float, ayanaamsha_id: str, anga_type: object) -> [Transit]:
     """Returns the next transit of the given planet e.g. jupiter
@@ -96,7 +96,7 @@ class Graha(JsonObject):
 
     transits = []
     arc_length = anga_type.arc_length
-    MIN_JUMP = min(1, jd_end-jd_start)
+    MIN_JUMP = min(1.0, jd_end - jd_start)
     # TODO: Could be tweaked based on planet using a dict?
 
     curr_L_bracket = jd_start
@@ -138,11 +138,36 @@ class Graha(JsonObject):
       logging.info("Could not find a transit of %s between %s (%f) and %s (%f)", self.body_name, ist_timezone.julian_day_to_local_time_str(jd_start), jd_start, ist_timezone.julian_day_to_local_time_str(jd_end), jd_end)
     return transits
 
+  def get_speed(self, jd):
+    """
+    Get the speed of the body in degrees per day.
+    
+    :param jd: 
+    :return: 
+    """
+    delta = 0.0001
+    return (self.get_longitude(jd + delta) - self.get_longitude(jd - delta)) / (2 * delta)
 
 
 def longitude_difference(jd, body1, body2):
-  return body1.get_longitude_anga(jd=jd) - body2.get_longitude_anga(jd=jd)
-
+  """
+  
+  Specs - 15 - 24 == -9, 15-4 = 11, 15 - 290 = 85
+  
+  :param jd: 
+  :param body1: 
+  :param body2: 
+  :return: 
+  """
+  diff = body1.get_longitude(jd=jd) - body2.get_longitude(jd=jd)
+  if diff <= 180 and diff >= 0:
+    return diff
+  if diff <= 0 and diff >= -180:
+    return diff
+  if diff > 180:
+    return diff - 360
+  if diff < -180:
+    return 360 + diff
 
 def get_star_longitude(star, jd):
   """ Calculate star longitude based on sefstars.txt.

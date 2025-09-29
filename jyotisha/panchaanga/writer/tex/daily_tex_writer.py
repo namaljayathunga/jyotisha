@@ -16,7 +16,7 @@ import jyotisha.custom_transliteration
 import jyotisha.panchaanga.temporal.names
 import jyotisha.panchaanga.spatio_temporal.annual
 import jyotisha.panchaanga.temporal
-from jyotisha.panchaanga.temporal import names
+from jyotisha.panchaanga.temporal import names, Graha
 from jyotisha.panchaanga.spatio_temporal import City
 from jyotisha.panchaanga.temporal import time
 from jyotisha.panchaanga.temporal.festival import rules
@@ -62,6 +62,10 @@ def emit(panchaanga, time_format="hh:mm", languages=None, scripts=None, output_s
 
   daily_panchaangas = panchaanga.daily_panchaangas_sorted()
   for d, daily_panchaanga in enumerate(daily_panchaangas):
+    if d == 0:
+      previous_day_panchaanga = None
+    else:
+      previous_day_panchaanga = daily_panchaangas[d - 1]
     if daily_panchaanga.date < panchaanga.start_date or daily_panchaanga.date > panchaanga.end_date:
       continue
     [y, m, dt] = [daily_panchaanga.date.year, daily_panchaanga.date.month, daily_panchaanga.date.day]
@@ -72,19 +76,19 @@ def emit(panchaanga, time_format="hh:mm", languages=None, scripts=None, output_s
     tz_off = (datetime.utcoffset(local_time).days * 86400 +
               datetime.utcoffset(local_time).seconds) / 3600.0
 
-    tithi_data_str = get_tithi_data_str(daily_panchaanga, scripts, time_format)
+    tithi_data_str = get_tithi_data_str(daily_panchaanga, scripts, time_format, previous_day_panchaanga, include_early_end_angas=True)
 
-    nakshatra_data_str = get_nakshatra_data_str(daily_panchaanga, scripts, time_format)
+    nakshatra_data_str = get_nakshatra_data_str(daily_panchaanga, scripts, time_format, previous_day_panchaanga, include_early_end_angas=True)
+
+    yoga_data_str = get_yoga_data_str(daily_panchaanga, scripts, time_format, previous_day_panchaanga, include_early_end_angas=True)
+
+    karana_data_str = get_karaNa_data_str(daily_panchaanga, scripts, time_format, previous_day_panchaanga, include_early_end_angas=True)
 
     rashi_data_str = get_raashi_data_str(daily_panchaanga, scripts, time_format)
     
     lagna_data_str = get_lagna_data_str(daily_panchaanga, scripts, time_format) if compute_lagnams else ''
 
-    yoga_data_str = get_yoga_data_str(daily_panchaanga, scripts, time_format)
-
-    karana_data_str = get_karaNa_data_str(daily_panchaanga, scripts, time_format)
-
-    gulika, rahu, yama, raatri_gulika, raatri_yama = get_raahu_yama_gulika_strings(daily_panchaanga, time_format)
+    gulika, rahu, yama, raatri_gulika, raatri_yama, durmuhurta1, durmuhurta2 = get_raahu_yama_gulika_strings(daily_panchaanga, time_format)
 
     if daily_panchaanga.solar_sidereal_date_sunset.month == 1:
       # Flip the year name for the remaining days
@@ -92,7 +96,7 @@ def emit(panchaanga, time_format="hh:mm", languages=None, scripts=None, output_s
 
     # Assign samvatsara, ayana, rtu #
     sar_data = '{%s}{%s}{%s}' % (yname,
-                                 names.NAMES['AYANA_NAMES']['sa'][scripts[0]][daily_panchaanga.solar_sidereal_date_sunset.month],
+                                 names.NAMES['AYANA_NAMES']['sa'][scripts[0]][daily_panchaanga.solar_sidereal_date_sunset.month % 12 + 1],
                                  names.NAMES['RTU_NAMES']['sa'][scripts[0]][daily_panchaanga.solar_sidereal_date_sunset.month])
 
     if daily_panchaanga.solar_sidereal_date_sunset.month_transition is None:
@@ -114,8 +118,8 @@ def emit(panchaanga, time_format="hh:mm", languages=None, scripts=None, output_s
 
     print('\\caldata{%s}{%s}{%s{%s}{%s}{%s}%s}' %
           (names.month_map[m].upper(), dt, month_data,
-           names.get_chandra_masa(daily_panchaanga.lunar_month_sunrise.index, scripts[0]),
-           names.NAMES['RTU_NAMES']['sa'][scripts[0]][int(ceil(daily_panchaanga.lunar_month_sunrise.index))],
+           names.get_chandra_masa(daily_panchaanga.lunar_date.month.index, scripts[0]),
+           names.NAMES['RTU_NAMES']['sa'][scripts[0]][int(ceil(daily_panchaanga.lunar_date.month.index))],
            names.NAMES['VARA_NAMES']['sa'][scripts[0]][daily_panchaanga.date.get_weekday()], sar_data), file=output_stream)
 
     stream_sun_moon_rise_data(daily_panchaanga, output_stream, time_format)
@@ -163,7 +167,7 @@ def stream_daylength_based_periods(daily_panchaanga, output_stream, time_format)
   sayamsandhya_start = time.Hour(
     24 * (daily_panchaanga.day_length_based_periods.fifteen_fold_division.saayam_sandhyaa.jd_start - jd)).to_string(format=time_format)
   sayamsandhya_end = time.Hour(
-    24 * (daily_panchaanga.day_length_based_periods.fifteen_fold_division.pradosha.jd_end - jd)).to_string(format=time_format)
+    24 * (daily_panchaanga.day_length_based_periods.fifteen_fold_division.saayam_sandhyaa.jd_end - jd)).to_string(format=time_format)
   ratriyama1 = time.Hour(24 * (daily_panchaanga.day_length_based_periods.eight_fold_division.raatri_yaama[0].jd_end - jd)).to_string(
     format=time_format)
   shayana_time_end = time.Hour(24 * (daily_panchaanga.day_length_based_periods.eight_fold_division.shayana.jd_start - jd)).to_string(
@@ -185,18 +189,18 @@ def stream_sun_moon_rise_data(daily_panchaanga, output_stream, time_format):
   sunrise = time.Hour(24 * (daily_panchaanga.jd_sunrise - jd)).to_string(
     format=time_format)
   sunset = time.Hour(24 * (daily_panchaanga.jd_sunset - jd)).to_string(format=time_format)
-  moonrise = time.Hour(24 * (daily_panchaanga.jd_moonrise - jd)).to_string(
+  moonrise = time.Hour(24 * (daily_panchaanga.graha_rise_jd[Graha.MOON] - jd)).to_string(
     format=time_format)
-  moonset = time.Hour(24 * (daily_panchaanga.jd_moonset - jd)).to_string(
+  moonset = time.Hour(24 * (daily_panchaanga.graha_set_jd[Graha.MOON] - jd)).to_string(
     format=time_format)
   midday = time.Hour(24 * (daily_panchaanga.jd_sunrise*0.5 + daily_panchaanga.jd_sunset*0.5 - jd)).to_string(
   format=time_format)
 
-  if daily_panchaanga.jd_moonrise > daily_panchaanga.jd_next_sunrise:
+  if daily_panchaanga.graha_rise_jd[Graha.MOON] > daily_panchaanga.jd_next_sunrise:
     moonrise = '---'
-  if daily_panchaanga.jd_moonset > daily_panchaanga.jd_next_sunrise:
+  if daily_panchaanga.graha_set_jd[Graha.MOON] > daily_panchaanga.jd_next_sunrise:
     moonset = '---'
-  if daily_panchaanga.jd_moonrise < daily_panchaanga.jd_moonset:
+  if daily_panchaanga.graha_rise_jd[Graha.MOON] < daily_panchaanga.graha_set_jd[Graha.MOON]:
     print('{\\sunmoonrsdata{%s}{%s}{%s}{%s}{%s}' % (sunrise, sunset, moonrise, moonset, midday), file=output_stream)
   else:
     print('{\\sunmoonsrdata{%s}{%s}{%s}{%s}{%s}' % (sunrise, sunset, moonrise, moonset, midday), file=output_stream)

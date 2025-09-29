@@ -5,15 +5,16 @@ from collections import defaultdict
 from typing import Dict
 
 import methodtools
+import regex
 from timebudget import timebudget
 
 from jyotisha.panchaanga.spatio_temporal import daily
-from jyotisha.panchaanga.temporal import time, set_constants, ComputationSystem, AngaType
+from jyotisha.panchaanga.temporal import time, set_constants, ComputationSystem, AngaType, era
 from jyotisha.panchaanga.temporal.festival import FestivalInstance
 from jyotisha.panchaanga.temporal.festival.applier import tithi_festival, ecliptic, solar, vaara, rule_repo_based, \
   FestivalAssigner
 from jyotisha.panchaanga.temporal.time import Date
-from jyotisha.panchaanga.temporal.tithi import ShraddhaTithiAssigner
+from jyotisha.panchaanga.temporal.tithi import ShraadhaTithiAssigner
 from jyotisha.panchaanga.temporal.zodiac.angas import Tithi
 from jyotisha.util import default_if_none
 from sanskrit_data import collection_helper
@@ -32,7 +33,7 @@ class Panchaanga(common.JsonObject):
     """
   LATEST_VERSION = "0.0.4"
 
-  def __init__(self, city, start_date, end_date, computation_system: ComputationSystem = None):
+  def __init__(self, city, start_date, end_date, year_type = None, computation_system: ComputationSystem = None, recompute_festivals=True):
     """Constructor for the panchaanga.
         """
     super(Panchaanga, self).__init__()
@@ -42,6 +43,7 @@ class Panchaanga(common.JsonObject):
     self.start_date.set_time_to_day_start()
     self.end_date = Date(*([int(x) for x in end_date.split('-')])) if isinstance(end_date, str) else end_date
     self.end_date.set_time_to_day_start()
+    self.year_type = year_type
 
     self.computation_system = default_if_none(computation_system, ComputationSystem.DEFAULT)
 
@@ -59,7 +61,7 @@ class Panchaanga(common.JsonObject):
 
     self.festival_id_to_days = defaultdict(set, {})
     self.compute_angas(compute_lagnas=self.computation_system.festival_options.lagnas)
-    if not self.computation_system.festival_options.no_fests:
+    if not self.computation_system.festival_options.no_fests and recompute_festivals:
       self.update_festival_details()
 
   @timebudget
@@ -131,10 +133,10 @@ class Panchaanga(common.JsonObject):
           # The below is necessary because tithi 1 or 2 may start after sunrise.
           dp_next = self.daily_panchaanga_for_date(date + 1)
           # Lunar month below may be incorrect (adhika mAsa complication) if dp_next is not available (eg when the next day is beyond this panchaanga duration). Downstream code should be aware of that case.
-          month = dp_next.lunar_month_sunrise if dp_next is not None else dp.lunar_month_sunrise + 1
+          month = dp_next.lunar_date.month if dp_next is not None else dp.lunar_date.month + 1
           span.anga = Tithi.from_anga(anga=span.anga, month=month)
         else:
-          span.anga = Tithi.from_anga(anga=span.anga, month=dp.lunar_month_sunrise)
+          span.anga = Tithi.from_anga(anga=span.anga, month=dp.lunar_date.month)
 
     return anga_spans
 
@@ -147,7 +149,7 @@ class Panchaanga(common.JsonObject):
       self.delete_festivals_on_date(date=dp.date)
 
   @timebudget
-  def update_festival_details(self):
+  def update_festival_details(self, compute_shraadha_tithis=False):
     """
 
     Festival data may be updated more frequently and a precomputed panchaanga may go out of sync. Hence we keep this method separate.
@@ -156,16 +158,19 @@ class Panchaanga(common.JsonObject):
     self._reset_festivals()
     rule_lookup_assigner = rule_repo_based.RuleLookupAssigner(panchaanga=self)
     rule_lookup_assigner.apply_festival_from_rules_repos()
-    ShraddhaTithiAssigner(panchaanga=self).assign_shraaddha_tithi()
+    if compute_shraadha_tithis:
+      ShraadhaTithiAssigner(panchaanga=self).assign_shraaddha_tithi()
     ecliptic.EclipticFestivalAssigner(panchaanga=self).assign_all()
     tithi_festival.TithiFestivalAssigner(panchaanga=self).assign_all()
     solar.SolarFestivalAssigner(panchaanga=self).assign_all()
     vaara.VaraFestivalAssigner(panchaanga=self).assign_all()
     generic_assigner = FestivalAssigner(panchaanga=self)
-    generic_assigner.cleanup_festivals()
     rule_lookup_assigner.assign_relative_festivals()
     # self._sync_festivals_dict_and_daily_festivals(here_to_daily=True, daily_to_here=True)
     generic_assigner.assign_festival_numbers()
+    tithi_festival.TithiFestivalAssigner(panchaanga=self).assign_relative_anadhyayana_days()
+    generic_assigner.cleanup_anadhyayana_festivals()
+    generic_assigner.cleanup_festivals()
     self.clear_padding_day_festivals()
 
 
@@ -198,7 +203,12 @@ class Panchaanga(common.JsonObject):
 
   def add_festival(self, fest_id, date, interval_id="full_day"):
     if date.get_date_str() not in self.date_str_to_panchaanga:
+      return
+    excluded_id_pattern = self.computation_system.festival_options.get_fest_id_pattern_excluded()
+    if excluded_id_pattern.fullmatch(fest_id):
       return 
+
+
     interval = self.date_str_to_panchaanga[date.get_date_str()].get_interval(interval_id=interval_id)
     self.add_festival_instance(date=date, festival_instance=FestivalInstance(name=fest_id, interval=interval))
 

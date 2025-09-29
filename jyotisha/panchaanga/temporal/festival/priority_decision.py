@@ -1,3 +1,8 @@
+"""
+Main function in this module is the :func:`decide` function.
+
+"""
+
 import logging
 
 from jyotisha.panchaanga.temporal import zodiac, get_2_day_interval_boundary_angas
@@ -17,9 +22,11 @@ class FestivalDecision(object):
     else:
       if fday == -1:
         boundary_angas = None
+        day_panchaanga = None
       else:
         boundary_angas = boundary_angas_list[fday]
-      return FestivalDecision(day_panchaanga=panchaangas[fday], boundary_angas=boundary_angas, fday=fday)
+        day_panchaanga = panchaangas[fday]
+      return FestivalDecision(day_panchaanga=day_panchaanga, boundary_angas=boundary_angas, fday=fday)
 
 
 def decide_paraviddha(p0, p1, target_anga, kaala):
@@ -76,8 +83,14 @@ def decide_puurvaviddha(p0, p1, target_anga, kaala):
     # This means that the correct anga did not
     # touch the kaala on either day!
     if d0_angas.end == prev_anga and d1_angas.start == next_anga:
-      # d_offset = {'sunrise': 0, 'aparaahna': 1, 'moonrise': 0, 'madhyaahna': 1, 'sunset': 1}[kaala]
-      d_offset = 0 if kaala in ['sunrise', 'moonrise'] else 1
+      # The following may need per-festival assignment, but this is reasonable, typically
+      # TODO: eliminate sunrise and moonrise below.
+      d_offset_map = {'सूर्योदयः': 0, 'sunrise': 0,  'चन्द्रोदयः': 0, 'moonrise': 0, 'पूर्वाह्णः': 0, 'प्रातः': 0, 'साङ्गवः': 0, 'चैत्रः': 0, 'मध्याह्नः': 1,
+                      'मध्याह्नः~(त्रेधा)': 1, 'अपराह्णः': 1, 'सायाह्नः': 1, 'मध्यरात्रिः': 1, 'रात्रिमानम्': 1,
+                      'सूर्यास्तमयः': 1, 'sunset': 1, 'प्रदोषः': 1, 'पूर्वरात्रिः~(त्रेधा)': 1, 'निशीथः': 1, 'प्राक्तनारुणोदयः': 1}
+      if kaala not in d_offset_map.keys():
+        logging.error(f"Could not find {kaala}")
+      d_offset = d_offset_map[kaala]
       # Need to assign a day to the festival here
       # since the anga did not touch kaala on either day
       # BUT ONLY IF YESTERDAY WASN'T ALREADY ASSIGNED,
@@ -92,10 +105,10 @@ def decide_puurvaviddha(p0, p1, target_anga, kaala):
   return FestivalDecision.from_details(boundary_angas_list=[d0_angas, d1_angas], fday=fday, panchaangas=[p0, p1])
 
 
-def decide_aparaahna_vyaapti(p0, p1, target_anga, ayanaamsha_id, kaala):
+def decide_vyaapti(p0, p1, target_anga, ayanaamsha_id, kaala):
   (d0_angas, d1_angas) = get_2_day_interval_boundary_angas(kaala=kaala, anga_type=target_anga.get_type(), p0=p0, p1=p1)
-  if kaala not in ['अपराह्णः']:
-    raise ValueError(kaala)
+  # if kaala not in ['अपराह्णः']:
+  #   raise ValueError(kaala)
 
   prev_anga = target_anga - 1
   next_anga = target_anga + 1
@@ -149,11 +162,23 @@ def decide_aparaahna_vyaapti(p0, p1, target_anga, ayanaamsha_id, kaala):
 
 
 def decide(p0, p1, target_anga, kaala, priority, ayanaamsha_id):
+  """ Decide between p0 and p1 depending on the event parameters
+  
+  :param p0: 
+  :param p1: 
+  :param target_anga: 
+  :param kaala: 
+  :param priority: 
+  :param ayanaamsha_id: 
+  :return: FestivalDecision object.
+  """
   if priority == 'paraviddha':
     decision = decide_paraviddha(p0=p0, p1=p1, target_anga=target_anga, kaala=kaala)
   elif priority == 'puurvaviddha':
     decision = decide_puurvaviddha(p0=p0, p1=p1, target_anga=target_anga, kaala=kaala)
   elif priority == 'vyaapti':
-    decision = decide_aparaahna_vyaapti(p0=p0, p1=p1, target_anga=target_anga, kaala=kaala, ayanaamsha_id=ayanaamsha_id)
+    decision = decide_vyaapti(p0=p0, p1=p1, target_anga=target_anga, kaala=kaala, ayanaamsha_id=ayanaamsha_id)
+  else:
+    raise ValueError('Unknown priority %s' % priority)
   return decision
 

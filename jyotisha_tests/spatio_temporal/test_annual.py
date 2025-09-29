@@ -2,13 +2,12 @@ import copy
 import logging
 import os
 
+from sanskrit_data import testing
 from timebudget import timebudget
 
-from jyotisha.panchaanga.spatio_temporal import City, annual, periodical
+from jyotisha.panchaanga.spatio_temporal import City, annual
 from jyotisha.panchaanga.temporal import ComputationSystem
-from jyotisha.panchaanga.temporal.time import Date
 from jyotisha_tests.spatio_temporal import chennai
-from sanskrit_data import testing
 
 logging.basicConfig(
   level=logging.DEBUG,
@@ -29,9 +28,10 @@ def test_timing(caplog):
 
 
 # noinspection PyUnresolvedReferences
-def panchaanga_json_comparer(city, year, computation_system=ComputationSystem.TEST):
+def panchaanga_json_comparer(city, year):
+  test_computation_system = ComputationSystem.read_from_file(filename=os.path.join(TEST_DATA_PATH, "test_computation_system.toml"))
   expected_content_path = os.path.join(TEST_DATA_PATH, '%s-%d.json' % (city.name, year))
-  panchaanga = annual.get_panchaanga_for_civil_year(city=city, year=year, computation_system=computation_system,
+  panchaanga = annual.get_panchaanga_for_civil_year(city=city, year=year, computation_system=test_computation_system,
                                                     allow_precomputed=False)
   timebudget.report(reset=True)
   testing.json_compare(actual_object=panchaanga, expected_content_path=expected_content_path)
@@ -62,13 +62,13 @@ def test_panchaanga_orinda_19(caplog):
 def test_adhika_maasa_computations_2009():
   panchaanga = no_fest_chennai_panchaanga(year=2009)
   expected_lunar_months_2009 = [7] + [8] * 29 + [9] * 30 + [10] * 15
-  assert expected_lunar_months_2009 == [x.lunar_month_sunrise.index for x in panchaanga.daily_panchaangas_sorted()[
+  assert expected_lunar_months_2009 == [x.lunar_date.month.index for x in panchaanga.daily_panchaangas_sorted()[
                                                                              panchaanga.duration_prior_padding + 290:panchaanga.duration_prior_padding + 365]]
 
 
 def no_fest_chennai_panchaanga(year):
   city = City('Chennai', "13:05:24", "80:16:12", "Asia/Calcutta")
-  computation_system = copy.deepcopy(ComputationSystem.MULTI_NEW_MOON_SIDEREAL_MONTH_ADHIKA__CHITRA_180)
+  computation_system = copy.deepcopy(ComputationSystem.MULTI_NEW_MOON_SIDEREAL_MONTH_ADHIKA_AMAANTA__CHITRA_180)
   computation_system.festival_options.repos = []
   panchaanga = annual.get_panchaanga_for_civil_year(city=city, year=year,
                                                          allow_precomputed=False, computation_system=computation_system)
@@ -78,7 +78,7 @@ def no_fest_chennai_panchaanga(year):
 def test_adhika_maasa_computations_2010():
   panchaanga = no_fest_chennai_panchaanga(year=2010)
   expected_lunar_months_2010 = [10] * 15 + [11] * 30 + [12] * 29 + [1] * 30 + [1.5] * 30 + [2] * 29 + [3]
-  assert expected_lunar_months_2010 == [x.lunar_month_sunrise.index for x in panchaanga.daily_panchaangas_sorted()[
+  assert expected_lunar_months_2010 == [x.lunar_date.month.index for x in panchaanga.daily_panchaangas_sorted()[
                                                                              panchaanga.duration_prior_padding:panchaanga.duration_prior_padding + 164]]
 
 
@@ -86,7 +86,7 @@ def test_adhika_maasa_computations_2018():
   from jyotisha_tests.spatio_temporal import get_panchaanga_from_previous_test
   panchaanga = get_panchaanga_from_previous_test(city_name="Chennai", year=2018)
   expected_lunar_months_2018 = [2] + [2.5] * 29 + [3] * 30 + [4]
-  assert expected_lunar_months_2018 == [x.lunar_month_sunrise.index for x in panchaanga.daily_panchaangas_sorted()[
+  assert expected_lunar_months_2018 == [x.lunar_date.month.index for x in panchaanga.daily_panchaangas_sorted()[
                                                                              panchaanga.duration_prior_padding + 134:panchaanga.duration_prior_padding + 195]]
 
 

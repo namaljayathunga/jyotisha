@@ -5,11 +5,12 @@ title = "For users"
 For detailed examples and help, please see individual module files - especially test files in this package.
 
 ## Installation or upgrade:
-- Install the pyswisseph library specially as described below.
+- Install the pyswisseph library specially as described in the [contribution section](../contributing/).
 - Install the jyotisha package
   -  (Prefer this to get the latest code:)`sudo pip install git+https://github.com/jyotisham/jyotisha/@master -U`
   - `sudo pip install jyotisha -U`
 - [Web](https://pypi.python.org/pypi/jyotisha).
+
 
 ## Usage
 ### Simple invocation
@@ -38,10 +39,20 @@ from jyotisha.panchaanga.writer.tex.daily_tex_writer import emit
 from indic_transliteration import sanscript
 emit(panchaanga,
      output_stream=open("/some/path.tex", 'w'), languages=["sa", "ta"], scripts=[sanscript.DEVANAGARI, sanscript.TAMIL])
+
+## ICS
+from jyotisha.panchaanga.writer import ics
+ics_calendar = ics.compute_calendar(panchaanga)
+ics.write_to_file(ics_calendar, "/some/path.ics")
 ```
 
+Note that there are several "ComputationalSystem" options.  
+Please see jyotisha/panchaanga/temporal/__init__.py .  
+Particularly, lunar month assignment can be sidereal (luni-solar) or tropical, pUrNImAnta or amAnta.  
+One can also select the festival cateogries to enable or disable; pick a different "ayanAMsha" (for setting naxatra boundaries).
 
 ### API usage
+- Please look at the [test cases](https://github.com/jyotisham/jyotisha/tree/master/jyotisha_tests) - they are your best guide for how to do stuff like getting panchAnga for a day.
 - Please see the generated python sphynx docs in one of the following places (jyotisha.panchanga.scripts package docs may be particularly relevant):
     - [readthedocs site](http://jyotisha.readthedocs.io)
     - under docs/_build/html/index.html

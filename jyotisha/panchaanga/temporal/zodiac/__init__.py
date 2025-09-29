@@ -93,7 +93,7 @@ class NakshatraDivision(common.JsonObject):
     ecliptic_south_pole_with_ra = ecliptic_to_equatorial(longitude=20, latitude=-90)
     # logging.debug(ecliptic_south_pole_with_ra)
     for index, (boundary_ra, boundary_declination) in enumerate(equatorial_boundary_coordinates_with_ra):
-      print(
+      logging.debug(
         '3 %(north_pole_ra)f %(north_pole_dec)f %(boundary_ra)f %(boundary_declination)f %(south_pole_ra)f %(south_pole_dec)f 2 N%(sector_id_1)02d N%(sector_id_2)02d' % dict(
           north_pole_ra=ecliptic_north_pole_with_ra[0],
           north_pole_dec=ecliptic_north_pole_with_ra[1],
@@ -124,20 +124,12 @@ class NakshatraDivision(common.JsonObject):
     else:
       ayanaamsha_id = self.ayanaamsha_id
 
-    w_moon = anga_type.weight_moon
-    w_sun = anga_type.weight_sun
-
     lcalc = 0  # computing offset longitudes
 
     #  Get the lunar longitude, starting at the ayanaamsha point in the ecliptic.
-    if w_moon != 0:
-      lmoon = Graha.singleton(Graha.MOON).get_longitude(self.jd, ayanaamsha_id=ayanaamsha_id)
-      lcalc += w_moon * lmoon
-
-    #  Get the solar longitude, starting at the ayanaamsha point in the ecliptic.
-    if w_sun != 0:
-      lsun = Graha.singleton(Graha.SUN).get_longitude(self.jd, ayanaamsha_id=ayanaamsha_id)
-      lcalc += w_sun * lsun
+    for body_name, weight in anga_type.body_weights.items():
+      longitude = Graha.singleton(body_name=body_name).get_longitude(self.jd, ayanaamsha_id=ayanaamsha_id)
+      lcalc += weight * longitude
 
     return self.longitude_to_fractional_division(longitude=lcalc, anga_type=anga_type)
 
@@ -156,8 +148,7 @@ class NakshatraDivision(common.JsonObject):
   def get_all_angas(self):
     """Compute various properties of the time based on lunar and solar longitudes, division of a circle into a certain number of degrees (arc_len).
     """
-    anga_objects = [AngaType.TITHI, AngaType.TITHI_PADA, AngaType.NAKSHATRA, AngaType.NAKSHATRA_PADA, AngaType.RASHI,
-                    AngaType.SIDEREAL_MONTH, AngaType.SOLAR_NAKSH, AngaType.YOGA, AngaType.KARANA]
+    anga_objects = [AngaType.TITHI, AngaType.TITHI_PADA, AngaType.NAKSHATRA, AngaType.NAKSHATRA_PADA, AngaType.RASHI, AngaType.SOLAR_NAKSH, AngaType.YOGA, AngaType.KARANA]
     angas = list(map(lambda anga_object: self.get_anga(anga_type=anga_object), anga_objects))
     anga_ids = list(map(lambda anga_obj: anga_obj.index, anga_objects))
     return dict(list(zip(anga_ids, angas)))
@@ -201,7 +192,7 @@ class NakshatraDivision(common.JsonObject):
       int rashi, where 1 stands for mESa, ..., 12 stands for mIna
     """
 
-    return self.get_anga(AngaType.SIDEREAL_MONTH)
+    return self.get_anga(AngaType.GRAHA_RASHI[Graha.SUN])
 
 
 def longitude_to_right_ascension(longitude):

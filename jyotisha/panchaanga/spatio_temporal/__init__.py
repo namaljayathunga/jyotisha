@@ -74,12 +74,12 @@ class City(JsonObject):
   @classmethod
   def get_city_from_db(cls, name):
     import pandas
-    df = pandas.read_csv(os.path.join(os.path.dirname(__file__), "data", "places_lat_lon_tz_db.tsv"), sep="\t", index_col="Name")
+    df = pandas.read_csv(os.path.join(os.path.dirname(__file__), "data", "places_lat_lon_tz_db.tsv"), sep="\t", index_col="Name", keep_default_na=False)
     city = City(name=name, name_hk=df.at[name, "saMskRta-nAma"], latitude=df.at[name, "Lat"], longitude=df.at[name, "Long"], timezone=df.at[name, "Timezone"])
     return city
 
   def get_transliterated_name(self, script):
-    if self.name_hk is not None:
+    if self.name_hk is not None and self.name_hk != "":
       return custom_transliteration.tr(self.name_hk, script)
     else:
       return self.name
@@ -90,26 +90,30 @@ class City(JsonObject):
   def get_rising_time(self, julian_day_start, body):
     from jyotisha.panchaanga.temporal.body import Graha
     graha = Graha.singleton(body)
+    if body == Graha.KETU:
+      return self.get_setting_time(julian_day_start=julian_day_start, body=Graha.RAHU)
     # rise_trans expects UT time
     return swe.rise_trans(
-      jd_start=julian_day_start, body=graha._get_swisseph_id(),
-      lon=self.longitude, lat=self.latitude,
+      julian_day_start, body=graha._get_swisseph_id(),
+      geopos=[self.longitude, self.latitude, 0],
       rsmi=CALC_RISE)[1][0]
 
   def get_setting_time(self, julian_day_start, body):
     from jyotisha.panchaanga.temporal.body import Graha
     graha = Graha.singleton(body)
+    if body == Graha.KETU:
+      return self.get_rising_time(julian_day_start=julian_day_start, body=Graha.RAHU)
     # rise_trans expects UT time
     return swe.rise_trans(
-      jd_start=julian_day_start, body=graha._get_swisseph_id(),
-      lon=self.longitude, lat=self.latitude,
+      julian_day_start, body=graha._get_swisseph_id(),
+      geopos=[self.longitude, self.latitude, 0],
       rsmi=CALC_SET)[1][0]
 
   def get_solar_eclipse_time(self, jd_start):
-    return swe.sol_eclipse_when_loc(julday=jd_start, lon=self.longitude, lat=self.latitude)
+    return swe.sol_eclipse_when_loc(jd_start, geopos=[self.longitude, self.latitude, 0],)
 
   def get_lunar_eclipse_time(self, jd_start):
-    return swe.lun_eclipse_when_loc(jd_start, lon=self.longitude, lat=self.latitude)
+    return swe.lun_eclipse_when_loc(jd_start, geopos=[self.longitude, self.latitude, 0],)
 
   def get_zodiac_longitude_eastern_horizon(self, jd):
     """ Get the ID of the raashi what is currently rising.

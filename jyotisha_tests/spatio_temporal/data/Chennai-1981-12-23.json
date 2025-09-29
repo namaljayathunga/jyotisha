@@ -29,6 +29,7 @@
     "ayanaamsha_id": "CHITRA_AT_180",
     "festival_options": {
       "aparaahna_as_second_half": false,
+      "fest_repos_excluded_patterns": [],
       "jsonClass": "FestivalOptions",
       "julian_handling": "converted to Gregorian",
       "prefer_eight_fold_day_division": false,
@@ -109,6 +110,11 @@
           "name": "gRhya/Apastamba"
         },
         {
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/gRhya/Apastamba_seasonal",
+          "jsonClass": "RulesRepo",
+          "name": "gRhya/Apastamba_seasonal"
+        },
+        {
           "base_url": "https://github.com/jyotisham/adyatithi/blob/master/gRhya/general",
           "jsonClass": "RulesRepo",
           "name": "gRhya/general"
@@ -129,9 +135,9 @@
           "name": "mahApuruSha/RShi"
         },
         {
-          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/general-indic",
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/general-indic-non-tropical",
           "jsonClass": "RulesRepo",
-          "name": "mahApuruSha/general-indic"
+          "name": "mahApuruSha/general-indic-non-tropical"
         },
         {
           "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/kAnchI-maTha",
@@ -139,9 +145,14 @@
           "name": "mahApuruSha/kAnchI-maTha"
         },
         {
-          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/general-tropical",
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/general-indic-tropical",
           "jsonClass": "RulesRepo",
-          "name": "mahApuruSha/general-tropical"
+          "name": "mahApuruSha/general-indic-tropical"
+        },
+        {
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/sci-tech",
+          "jsonClass": "RulesRepo",
+          "name": "mahApuruSha/sci-tech"
         },
         {
           "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/zRGgErI-maTha",
@@ -154,9 +165,9 @@
           "name": "mahApuruSha/mAdhva-misc"
         },
         {
-          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/nAyanAr",
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/nAyanmAr",
           "jsonClass": "RulesRepo",
-          "name": "mahApuruSha/nAyanAr"
+          "name": "mahApuruSha/nAyanmAr"
         },
         {
           "base_url": "https://github.com/jyotisham/adyatithi/blob/master/mahApuruSha/sangIta-kRt",
@@ -229,9 +240,19 @@
           "name": "time_focus/amrita-siddhi"
         },
         {
-          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/time_focus/Rtu",
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/time_focus/nakta-vrata-yoga",
           "jsonClass": "RulesRepo",
-          "name": "time_focus/Rtu"
+          "name": "time_focus/nakta-vrata-yoga"
+        },
+        {
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/time_focus/Rtu/tropical-ayanAdi",
+          "jsonClass": "RulesRepo",
+          "name": "time_focus/Rtu/tropical-ayanAdi"
+        },
+        {
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/time_focus/luno-tropical/smArta",
+          "jsonClass": "RulesRepo",
+          "name": "time_focus/luno-tropical/smArta"
         },
         {
           "base_url": "https://github.com/jyotisham/adyatithi/blob/master/time_focus/misc",
@@ -292,8 +313,24 @@
           "base_url": "https://github.com/jyotisham/adyatithi/blob/master/time_focus/yugAdiH",
           "jsonClass": "RulesRepo",
           "name": "time_focus/yugAdiH"
+        },
+        {
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/time_focus/kalpAdiH",
+          "jsonClass": "RulesRepo",
+          "name": "time_focus/kalpAdiH"
+        },
+        {
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/time_focus/adhyayana",
+          "jsonClass": "RulesRepo",
+          "name": "time_focus/adhyayana"
+        },
+        {
+          "base_url": "https://github.com/jyotisham/adyatithi/blob/master/time_focus/manvAdiH",
+          "jsonClass": "RulesRepo",
+          "name": "time_focus/manvAdiH"
         }
-      ]
+      ],
+      "tropical_month_start": "mAdhava_at_equinox"
     },
     "graha_lopa_measures": {
       "graha_id_to_lopa_measure": {
@@ -306,7 +343,8 @@
       "jsonClass": "GrahaLopaMeasures"
     },
     "jsonClass": "ComputationSystem",
-    "lunar_month_assigner_type": "MULTI_NEW_MOON_SIDEREAL_MONTH_ADHIKA"
+    "lunar_month_assigner_type": "MULTI_NEW_MOON_SIDEREAL_MONTH_ADHIKA_AMAANTA",
+    "short_id": "चि॰"
   },
   "date": {
     "day": 23,
@@ -483,6 +521,12 @@
         "jsonClass": "Interval",
         "name": "अपराह्णः"
       },
+      "aparaahna3": {
+        "jd_end": 2444962.0104,
+        "jd_start": 2444961.8543,
+        "jsonClass": "Interval",
+        "name": "अपराह्णः~(त्रेधा)"
+      },
       "bodha": {
         "jd_end": 2444962.0104,
         "jd_start": 2444961.9792,
@@ -506,6 +550,12 @@
         "jd_start": 2444961.5735,
         "jsonClass": "Interval",
         "name": "चैत्रः"
+      },
+      "durmuhurta1": {
+        "jd_end": 2444961.7919,
+        "jd_start": 2444961.7607,
+        "jsonClass": "Interval",
+        "name": "दुर्मुहूर्तः १"
       },
       "gaandharva": {
         "jd_end": 2444961.7607,
@@ -543,6 +593,12 @@
         "jd_start": 2444961.7295,
         "jsonClass": "Interval",
         "name": "मध्याह्नः"
+      },
+      "madhyaahna3": {
+        "jd_end": 2444961.8543,
+        "jd_start": 2444961.6983,
+        "jsonClass": "Interval",
+        "name": "मध्याह्नः~(त्रेधा)"
       },
       "madhyaraatri": {
         "jd_end": 2444962.3297,
@@ -593,7 +649,7 @@
         "name": "प्रातःसन्ध्यावन्दनकालः"
       },
       "pradosha": {
-        "jd_end": 2444962.0458,
+        "jd_end": 2444962.0769,
         "jd_start": 2444962.0104,
         "jsonClass": "Interval",
         "name": "प्रदोषः"
@@ -603,6 +659,18 @@
         "jd_start": 2444961.4713,
         "jsonClass": "Interval",
         "name": "प्राक्तनारुणोदयः"
+      },
+      "puurvaahna3": {
+        "jd_end": 2444961.6983,
+        "jd_start": 2444961.5423,
+        "jsonClass": "Interval",
+        "name": "पूर्वाह्णः~(त्रेधा)"
+      },
+      "puurvaraatri3": {
+        "jd_end": 2444962.1878,
+        "jd_start": 2444962.0104,
+        "jsonClass": "Interval",
+        "name": "पूर्वरात्रिः~(त्रेधा)"
       },
       "puushaka": {
         "jd_end": 2444962.1523,
@@ -647,7 +715,7 @@
         "name": "सायाह्नः"
       },
       "saayam_sandhyaa": {
-        "jd_end": 2444962.0104,
+        "jd_end": 2444962.0458,
         "jd_start": 2444961.9792,
         "jsonClass": "Interval",
         "name": "सायंसन्ध्यावन्दनकालः"
@@ -892,18 +960,41 @@
     }
   },
   "festival_id_to_instance": {},
-  "jd_moonrise": 2444962.461,
-  "jd_moonset": 2444961.9159,
+  "graha_rise_jd": {
+    "jupiter": 2444962.3697,
+    "ketu": 2444961.6051,
+    "mars": 2444962.2808,
+    "mercury": 2444961.5634,
+    "moon": 2444962.461,
+    "rahu": 2444962.0745,
+    "saturn": 2444962.3299,
+    "venus": 2444961.6456
+  },
+  "graha_set_jd": {
+    "jupiter": 2444961.8536,
+    "ketu": 2444962.0745,
+    "mars": 2444961.7799,
+    "mercury": 2444962.0327,
+    "moon": 2444961.9159,
+    "rahu": 2444961.6051,
+    "saturn": 2444961.8205,
+    "venus": 2444962.1201
+  },
   "jd_next_sunrise": 2444962.5427,
   "jd_previous_sunset": 2444961.01,
   "jd_sunrise": 2444961.5423,
   "jd_sunset": 2444962.0104,
   "jsonClass": "DailyPanchaanga",
   "julian_day_start": 2444961.2708,
-  "lunar_month_sunrise": {
-    "anga_type_id": "SIDEREAL_MONTH",
-    "index": 9,
-    "jsonClass": "Anga"
+  "lunar_date": {
+    "anga_type_id": "TITHI",
+    "index": 27,
+    "jsonClass": "Tithi",
+    "month": {
+      "anga_type_id": "RASHI_SUN",
+      "index": 9,
+      "jsonClass": "Anga"
+    }
   },
   "mauDhyas": {
     "mercury": [
@@ -911,13 +1002,94 @@
       -7.6049
     ]
   },
-  "shraaddha_tithi": [],
   "solar_sidereal_date_sunset": {
     "day": 8,
     "jsonClass": "BasicDateWithTransitions",
     "month": 9
   },
   "sunrise_day_angas": {
+    "graha_raashis_with_ends": {
+      "jupiter": [
+        {
+          "anga": {
+            "anga_type_id": "RASHI_JUPITER",
+            "index": 7,
+            "jsonClass": "Anga"
+          },
+          "jsonClass": "AngaSpan"
+        }
+      ],
+      "ketu": [
+        {
+          "anga": {
+            "anga_type_id": "RASHI_KETU",
+            "index": 9,
+            "jsonClass": "Anga"
+          },
+          "jsonClass": "AngaSpan"
+        }
+      ],
+      "mars": [
+        {
+          "anga": {
+            "anga_type_id": "RASHI_MARS",
+            "index": 6,
+            "jsonClass": "Anga"
+          },
+          "jsonClass": "AngaSpan"
+        }
+      ],
+      "mercury": [
+        {
+          "anga": {
+            "anga_type_id": "RASHI_MERCURY",
+            "index": 9,
+            "jsonClass": "Anga"
+          },
+          "jsonClass": "AngaSpan"
+        }
+      ],
+      "rahu": [
+        {
+          "anga": {
+            "anga_type_id": "RASHI_RAHU",
+            "index": 3,
+            "jsonClass": "Anga"
+          },
+          "jsonClass": "AngaSpan"
+        }
+      ],
+      "saturn": [
+        {
+          "anga": {
+            "anga_type_id": "RASHI_SATURN",
+            "index": 6,
+            "jsonClass": "Anga"
+          },
+          "jsonClass": "AngaSpan"
+        }
+      ],
+      "sun": [
+        {
+          "anga": {
+            "anga_type_id": "RASHI_SUN",
+            "index": 9,
+            "jsonClass": "Anga"
+          },
+          "jsonClass": "AngaSpan"
+        }
+      ],
+      "venus": [
+        {
+          "anga": {
+            "anga_type_id": "RASHI_VENUS",
+            "index": 10,
+            "jsonClass": "Anga"
+          },
+          "jsonClass": "AngaSpan"
+        }
+      ]
+    },
     "jsonClass": "DayAngas",
     "karanas_with_ends": [
       {
@@ -994,6 +1166,11 @@
         "jsonClass": "AngaSpan"
       }
     ],
+    "tithi_at_noon": {
+      "anga_type_id": "TITHI",
+      "index": 28,
+      "jsonClass": "Anga"
+    },
     "tithi_at_sunrise": {
       "anga_type_id": "TITHI",
       "index": 27,
@@ -1048,6 +1225,6 @@
   "tropical_date_sunset": {
     "day": 2,
     "jsonClass": "BasicDateWithTransitions",
-    "month": 10
+    "month": 11
   }
 }

@@ -1,6 +1,15 @@
 from jyotisha.panchaanga import temporal
 from jyotisha.panchaanga.spatio_temporal import City
+from jyotisha.panchaanga.temporal import ComputationSystem
 from jyotisha.panchaanga.writer.generation_project import dump_summary
+
+
+def dump_delhi_history():
+  c = City.get_city_from_db(name="Delhi")
+  # for year in range(850, 1149):
+  #   dump_summary(year=year, city=c)
+  for year in range(924, 2050):
+    dump_summary(year=year, city=c, computation_system=ComputationSystem.MULTI_NEW_MOON_SIDEREAL_MONTH_ADHIKA_PURNIMANTA__CHITRA_180, overwrite=True)
 
 
 def dump_mysore_history():
@@ -30,8 +39,9 @@ def dump_bengaluru_history():
   # for year in range(1950, 2020):
   #   dump_summary(year=year, city=city)
   for year in range(2010, 2023):
-    dump_summary(year=year, city=city,computation_system=temporal.get_kauNdinyAyana_bhAskara_gRhya_computation_system(), allow_precomputed=False)
+    # dump_summary(year=year, city=city,computation_system=temporal.get_kauNdinyAyana_bhAskara_gRhya_computation_system(), allow_precomputed=False)
+    dump_summary(year=year, city=city, allow_precomputed=False)
 
 
 if __name__ == '__main__':
-  dump_bengaluru_history()
+  dump_delhi_history()

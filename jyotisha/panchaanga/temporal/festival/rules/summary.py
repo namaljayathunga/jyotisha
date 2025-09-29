@@ -1,5 +1,7 @@
 import logging
 
+import regex
+
 from indic_transliteration import sanscript
 from jyotisha import custom_transliteration
 from jyotisha.panchaanga.temporal import AngaType, names
@@ -27,6 +29,7 @@ def describe_fest(rule, include_images, include_shlokas, include_url, is_brief, 
   blurb = get_timing_summary(rule)
   # Get the URL
   description_string = get_description_str_with_shlokas(include_shlokas, rule, script)
+  description_string = regex.sub("\n##", "\n%s" % header_md, "\n" + description_string).lstrip()
   if include_images:
     if rule.image is not None:
       image_string = '![](https://github.com/jyotisham/adyatithi/blob/master/images/%s)\n\n' % rule.image
@@ -36,7 +39,7 @@ def describe_fest(rule, include_images, include_shlokas, include_url, is_brief, 
     final_description_string = blurb
   else:
       final_description_string = ''
-  final_description_string += description_string
+  final_description_string += "\n\n" + description_string
   if include_images:
     final_description_string += image_string
   url = rule.get_url()
@@ -50,6 +53,10 @@ def describe_fest(rule, include_images, include_shlokas, include_url, is_brief, 
   return final_description_string
 
 
+def get_url(rule):
+  return rule.get_url()
+
+
 def get_description_str_with_shlokas(include_shlokas, rule, script):
   # Get the description
   description_string = ''
@@ -61,7 +68,7 @@ def get_description_str_with_shlokas(include_shlokas, rule, script):
         descriptions["en"] = get_english_description(description_string, rule)
       else:
         descriptions[language] = rule.description[language]
-  description_items = sorted(descriptions.items(), key=lambda pair: ["en", "sa", "ta"].index(pair[0]))
+  description_items = sorted(descriptions.items(), key=lambda pair: {"en": 0, "sa": 1, "ta": 2, "kn": 3}.get(pair[0], 99))
   description_string = "\n\n".join([x[1].strip() for x in description_items])
   if rule.shlokas is not None and include_shlokas:
     shlokas = sanscript.transliterate(rule.shlokas.strip().replace("\n", "  \n"), sanscript.DEVANAGARI, script)
@@ -113,17 +120,21 @@ def get_timing_summary(rule):
         blurb += 'Julian date was %s in this reckoning. ' % (rule.timing.julian_handling)
       return blurb
     month = ' of %s (%s) month' % (rule.timing.get_month_name_en(script=sanscript.ISO), rule.timing.month_type.replace("_month", "").replace("_", " "))
+    if rule.timing.month_number == 0:
+      if rule.timing.anga_type in ['yoga', 'nakshatra']:
+        month = ''
+        angam = 'every occurrence of '
   if rule.timing is not None and rule.timing.anga_type is not None:
     if rule.timing.anga_type in ['tithi', 'yoga', 'nakshatra']:
-      angam = 'Observed on '
+      angam = 'Observed on ' + angam
       anga_type = AngaType.from_name(name=rule.timing.anga_type)
       angam += '%s %s' % (anga_type.names_dict[sanscript.ISO][rule.timing.anga_number], rule.timing.anga_type)
     elif rule.timing.anga_type == 'day':
-      angam = 'Observed on '
+      angam = 'Observed on ' + angam
       angam += 'day %d' % rule.timing.anga_number
   else: # No timing or anga_type
     if rule.description is None:
-      logging.debug("No anga_type in %s or description even!!", rule.id)
+      logging.warning("No anga_type in %s or description even!!", rule.id)
 
   if angam is not None:
     blurb += angam

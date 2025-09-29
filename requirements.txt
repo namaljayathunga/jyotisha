@@ -1,9 +1,9 @@
-pyswisseph
+pyswisseph==2.10.3.2
 astropy
 scipy
 pandas
 sanskrit_data
-doc_curation
+doc-curation
 indic_transliteration
 icalendar
 convertdate
@@ -17,9 +17,9 @@ flask_cors
 jsonpickle
 methodtools
 Werkzeug
-jyotisha
 timebudget
 Flask
 pypandoc
 setuptools
 python-telegram-bot
+discord.py

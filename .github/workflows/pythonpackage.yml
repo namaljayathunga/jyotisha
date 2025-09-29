@@ -1,4 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions, update generated calendar outputs.
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
 name: Python package
@@ -12,6 +12,7 @@ on:
     inputs:
       logLevel:
         default: 'warning'
+        description: 'Dummy field'
 
 jobs:
   build:
@@ -20,16 +21,22 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.6]
+        python-version: [3.9]
       #         python-version: [3.5, 3.6, 3.7, 3.8]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@master
         with:
-          submodules: 'recursive'
-          fetch-depth: 1 # Because of this, you will fail to push refs to dest repo
-      # Ideally we should not do the below. Changes in a remote repo might break our tests. 
-#      - name: Submodules - pull latest
-#        run: git pull origin master --recurse-submodules
+          ref: master
+          submodules: false
+          # Setting true above seems to lead to submodule updation problems.
+          fetch-depth: 1
+      - name: Init submodules, update hugo-source
+        run: |
+          set -o xtrace
+          git submodule update  --init --recursive
+          git submodule update --remote --merge --recursive hugo-source/content/output
+          git submodule update --remote --merge --recursive hugo-source/themes/sanskrit-documentation-theme-hugo
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v1
         with:
@@ -37,7 +44,6 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install git+https://github.com/astrorigin/pyswisseph@master -U
   #        python -m pip install git+https://github.com/astropy/astropy@master -U
       - name: Lint with flake8
         run: |
@@ -56,11 +62,13 @@ jobs:
         run: |
           python -c "import jyotisha"
       - name: Test with pytest
+        id: pytest
         run: |
           pip install pytest
           pytest jyotisha_tests
       - name: Upload package
         uses: pypa/gh-action-pypi-publish@master
+        if: ${{ github.event_name != 'pull_request' && steps.pytest.conclusion == 'success'}}
         with:
           user: __token__
           skip_existing: true
@@ -79,7 +87,7 @@ jobs:
           rm -rf build_github
           hugo
           cd ..
-      # MD files are useful for certain bots.
+      # MD files are useful for certain bots. Hence the below.
       - name: Deploy md
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.event_name != 'pull_request' && steps.hugo_build.conclusion == 'success'}}
@@ -87,9 +95,11 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./hugo-source/content/output
           publish_branch: generated-output
+          keep_files: true
       - name: Deploy html
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.event_name != 'pull_request' && steps.hugo_build.conclusion == 'success'}}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./hugo-source/build_github
+          force_orphan: true # git history growth - even on non-src branches - makes cloning slow.

@@ -5,7 +5,8 @@ import logging
 import os
 import sys
 
-from icalendar import Calendar, Timezone
+from icalendar import Calendar, Timezone, TimezoneStandard
+from datetime import datetime, timedelta
 
 import jyotisha
 from indic_transliteration import sanscript
@@ -48,16 +49,25 @@ def compute_calendar(panchaanga, languages=None, scripts=None, set_sequence=True
       ics_calendar.add_component(event)
     add_festival_events(day_index=day_index, ics_calendar=ics_calendar, panchaanga=panchaanga, scripts=scripts, languages=languages)
 
-    # if m == 12 and dt == 31:
-    #     break
-
   return ics_calendar
 
 
 def set_calendar_metadata(ics_calendar, panchaanga, set_sequence):
   timezone = Timezone()
+  ics_calendar.add('prodid', '-//ICS writer//github.com/jyotisha//')
+  ics_calendar.add('version', '2.0')
+
+  # Add timezone information
+  timezone = Timezone()
   timezone.add('TZID', panchaanga.city.timezone)
+  timezone_standard = TimezoneStandard()
+  timezone_standard.add('DTSTART', datetime(1970, 1, 1, 0, 0, 0))
+  # The following lines need to be fixed for daylight savings time
+  # timezone_standard.add('TZOFFSETFROM', timedelta(hours=panchaanga.city.timezone.tz_offset))
+  # timezone_standard.add('TZOFFSETTO', timedelta(hours=panchaanga.city.timezone.tz_offset))
+  timezone.add_component(timezone_standard)
   ics_calendar.add_component(timezone)
+
   if set_sequence:
     # Calendar programs such as Google Calendar might not update events if they don't recognize that the ics data has changed. https://support.google.com/calendar/thread/17012350?hl=en
     # https://icalendar.org/iCalendar-RFC-5545/3-8-7-4-sequence-number.html
